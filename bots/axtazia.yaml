@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axtazia-bot
+  labels:
+    app: axtazia
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: axtazia
+  template:
+    metadata:
+      labels:
+        app: axtazia
+    spec:
+      imagePullSecrets:
+        - name: ghcr-auth
+      containers:
+      - name: bot
+        image: ghcr.io/axtazer/axtazia:latest
+        imagePullPolicy: Always
+        env:
+        # --- SECRETS ---
+        - name: DISCORD_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: axtazia-secrets
+              key: DISCORD_TOKEN
+        - name: NASA_APOD_KEY
+          valueFrom:
+            secretKeyRef:
+              name: axtazia-secrets
+              key: NASA_APOD_KEY
+        - name: WOL_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: axtazia-secrets
+              key: WOL_API_TOKEN
+
+        # --- CONFIG ---
+        - name: CLIENT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: axtazia-config
+              key: CLIENT_ID
+        - name: GUILD_ID
+          valueFrom:
+            configMapKeyRef:
+              name: axtazia-config
+              key: GUILD_ID
+        - name: OWNER_ID
+          valueFrom:
+            configMapKeyRef:
+              name: axtazia-config
+              key: OWNER_ID
+        - name: WOL_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: axtazia-config
+              key: WOL_API_URL
+
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: axtazia-secrets
+  namespace: default
+spec:
+  itemPath: "vaults/k8s-home/items/axtazia-bot"

@@ -1,0 +1,65 @@
+# cadvisor.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cadvisor
+  namespace: monitoring
+  labels:
+    app: cadvisor
+spec:
+  selector:
+    matchLabels:
+      app: cadvisor
+  template:
+    metadata:
+      labels:
+        app: cadvisor
+    spec:
+      containers:
+        - name: cadvisor
+          image: gcr.io/cadvisor/cadvisor:latest
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: docker
+              mountPath: /var/lib/docker
+              readOnly: true
+            - name: var-run
+              mountPath: /var/run
+          securityContext:
+            privileged: true
+      volumes:
+        - name: docker
+          hostPath:
+            path: /var/lib/docker
+        - name: var-run
+          hostPath:
+            path: /var/run
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cadvisor
+  namespace: monitoring
+  labels:
+    app: cadvisor
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  selector:
+    app: cadvisor
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cadvisor
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: cadvisor
+  endpoints:
+    - port: http
+      interval: 30s

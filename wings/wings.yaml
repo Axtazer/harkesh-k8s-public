@@ -1,0 +1,140 @@
+# --- ServiceAccount ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wings
+  namespace: wings
+---
+# --- Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wings
+  namespace: wings
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: wings
+  template:
+    metadata:
+      labels:
+        app: wings
+    spec:
+      serviceAccountName: wings
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      securityContext:
+        fsGroupChangePolicy: "Always"
+      nodeSelector:
+        kubernetes.io/hostname: harkesh
+      containers:
+        - name: wings
+          image: ghcr.io/pelican-dev/wings:latest
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            runAsGroup: 0
+          tty: true
+          env:
+            - name: TZ
+              value: "Europe/Paris"
+            - name: WINGS_UID
+              value: "988"
+            - name: WINGS_GID
+              value: "988"
+            - name: WINGS_USERNAME
+              value: "pelican"
+            - name: debug
+              value: "false"
+          ports:
+            - containerPort: 8080
+            - containerPort: 2022
+            - containerPort: 8443
+          volumeMounts:
+            - mountPath: /var/run/docker.sock
+              name: docker-sock
+            - mountPath: /var/lib/docker/containers
+              name: docker-containers
+            - mountPath: /etc/pelican
+              name: pelican-config
+            - mountPath: /var/lib/pelican
+              name: pelican-data
+            - mountPath: /var/log/pelican
+              name: pelican-logs
+            - mountPath: /tmp/pelican
+              name: pelican-tmp
+            - mountPath: /etc/ssl/certs
+              name: ssl-certs
+              readOnly: true
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: docker-containers
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: pelican-config
+          hostPath:
+            path: /etc/pelican
+            type: DirectoryOrCreate
+        - name: pelican-data
+          hostPath:
+            path: /var/lib/pelican
+            type: DirectoryOrCreate
+        - name: pelican-logs
+          hostPath:
+            path: /var/log/pelican
+            type: DirectoryOrCreate
+        - name: pelican-tmp
+          hostPath:
+            path: /tmp/pelican
+            type: DirectoryOrCreate
+        - name: ssl-certs
+          hostPath:
+            path: /etc/ssl/certs
+            type: Directory
+---
+# --- Service ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wings-svc
+  namespace: wings
+spec:
+  type: ClusterIP
+  ports:
+    - name: wings-api
+      protocol: TCP
+      port: 8443
+      targetPort: 8080
+    - name: wings-sftp
+      protocol: TCP
+      port: 2022
+      targetPort: 2022
+---
+# --- Endpoints ---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: wings-svc-eps
+  namespace: wings
+  labels:
+    kubernetes.io/service-name: wings-svc
+addressType: IPv4
+endpoints:
+  - addresses:
+      - "192.168.1.201"
+    conditions:
+      ready: true
+ports:
+  - name: wings-api
+    protocol: TCP
+    port: 8080
+  - name: wings-sftp
+    protocol: TCP
+    port: 2022

@@ -1,0 +1,118 @@
+# --- Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pelican-panel
+  namespace: pelican
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: panel
+  revisionHistoryLimit: 2
+  template:
+    metadata:
+      labels:
+        app: panel
+    spec:
+      securityContext:
+        fsGroup: 82
+        fsGroupChangePolicy: Always
+      containers:
+      - name: panel
+        image: ghcr.io/pelican-dev/panel:latest
+        env:
+        - name: APP_URL
+          value: "https://panel.castaldo.fr"
+        - name: APP_ENV
+          value: "production"
+        - name: APP_DEBUG
+          value: "false"
+        - name: XDG_DATA_HOME
+          value: "/pelican-data"
+        - name: BEHIND_PROXY
+          value: "true"
+        - name: APP_TIMEZONE
+          value: "Europe/Paris"
+        volumeMounts:
+        - name: pelican-data
+          mountPath: /pelican-data
+        - name: pelican-logs
+          mountPath: /var/www/html/storage/logs
+
+        resources:
+          requests:
+            cpu: 300m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1.5Gi
+        readinessProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 6
+      volumes:
+      - name: pelican-data
+        persistentVolumeClaim:
+          claimName: pelican-data-pvc
+      - name: pelican-logs
+        emptyDir: {}
+---
+# --- Service ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pelican-panel-svc
+  namespace: pelican
+spec:
+  selector:
+    app: panel
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+
+---
+# --- Wings communication ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wings-internal
+  namespace: pelican
+spec:
+  type: ExternalName
+  externalName: wings-svc.wings.svc.cluster.local
+
+---
+# --- Ingress (optionnel, mais pratique de l’avoir ici aussi) ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pelican-ingress
+  namespace: pelican
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: panel.castaldo.fr
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: pelican-panel-svc
+            port:
+              number: 80

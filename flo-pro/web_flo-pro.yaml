@@ -1,0 +1,42 @@
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: ghcr-secret
+  namespace: flo-pro
+spec:
+  itemPath: "vaults/k8s-home/items/ghcr-token"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flo-pro
+  namespace: flo-pro
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flo-pro
+  template:
+    metadata:
+      labels:
+        app: flo-pro
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: flo-pro
+          image: ghcr.io/axtazer/flo-pro:latest
+          ports:
+            - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flo-pro
+  namespace: flo-pro
+spec:
+  selector:
+    app: flo-pro
+  ports:
+    - port: 80
+      targetPort: 3000

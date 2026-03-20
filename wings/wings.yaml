@@ -122,24 +122,3 @@ spec:
       port: 2022
       targetPort: 2022
 ---
-# --- Endpoints ---
-apiVersion: discovery.k8s.io/v1
-kind: EndpointSlice
-metadata:
-  name: wings-svc-eps
-  namespace: wings
-  labels:
-    kubernetes.io/service-name: wings-svc
-addressType: IPv4
-endpoints:
-  - addresses:
-      - "192.168.1.201"
-    conditions:
-      ready: true
-ports:
-  - name: wings-api
-    protocol: TCP
-    port: 8080
-  - name: wings-sftp
-    protocol: TCP
-    port: 2022

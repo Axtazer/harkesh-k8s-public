@@ -1,3 +1,11 @@
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: cloudflared-token
+  namespace: kube-system
+spec:
+  itemPath: "vaults/k8s-home/items/cloudflared"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,4 +29,10 @@ spec:
         - --no-autoupdate
         - run
         - --token
-        - eyJhIjoiMDA4YzQ5MGQ5NjMyNzM2MDBhYjRhNzczNjVmMjYxNDkiLCJ0IjoiYWJjMGUyNGQtNGQxNi00MmMzLWJmZDMtMWFiYjFhZDcyNTk5IiwicyI6Ik5EWTJNVFl5WVRBdE1HSTVNaTAwWldNNUxUaGxOemN0Wm1RM05UZzBOelEzTmpReiJ9
+        - $(TUNNEL_TOKEN)
+        env:
+        - name: TUNNEL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: cloudflared-token
+              key: token

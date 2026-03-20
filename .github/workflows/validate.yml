@@ -1,0 +1,20 @@
+name: Validate YAML
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install kubeval
+        run: |
+          wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+          tar xf kubeval-linux-amd64.tar.gz
+          mv kubeval /usr/local/bin/
+      
+      - name: Validate YAML files
+        run: |
+          find . -name "*.yaml" -not -path "./.github/*" | xargs kubeval --ignore-missing-schemas

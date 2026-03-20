@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: axtazia-bot
+  namespace: default
   labels:
     app: axtazia
 spec:
@@ -75,3 +76,14 @@ metadata:
   namespace: default
 spec:
   itemPath: "vaults/k8s-home/items/axtazia-bot"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: axtazia-config
+  namespace: default
+data:
+  CLIENT_ID: "883263767813685258"
+  GUILD_ID: "798235492503257148"
+  OWNER_ID: "496722398310039552"
+  WOL_API_URL: https://wol.castaldo.fr/wake

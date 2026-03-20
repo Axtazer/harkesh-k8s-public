@@ -3,6 +3,8 @@ kind: OnePasswordItem
 metadata:
   name: ghcr-secret
   namespace: flo-pro
+  annotations:
+    operator.1password.io/type: kubernetes.io/dockerconfigjson
 spec:
   itemPath: "vaults/k8s-home/items/ghcr-token"
 ---

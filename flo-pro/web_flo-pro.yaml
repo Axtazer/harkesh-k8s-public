@@ -38,6 +38,10 @@ spec:
           image: ghcr.io/axtazer/flo-pro:latest
           ports:
             - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: flo-pro-env
+
 ---
 apiVersion: v1
 kind: Service

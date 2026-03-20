@@ -9,12 +9,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install kubeval
+      - name: Install kubeconform
         run: |
-          wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
-          tar xf kubeval-linux-amd64.tar.gz
-          mv kubeval /usr/local/bin/
-      
+          wget https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar xf kubeconform-linux-amd64.tar.gz
+          mv kubeconform /usr/local/bin/
+
       - name: Validate YAML files
         run: |
-          find . -name "*.yaml" -not -path "./.github/*" | xargs kubeval --ignore-missing-schemas
+          find . -name "*.yaml" -not -path "./.github/*" | xargs kubeconform \
+            -ignore-missing-schemas \
+            -summary \
+            -kubernetes-version 1.32.0

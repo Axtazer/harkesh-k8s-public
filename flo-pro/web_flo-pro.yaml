@@ -1,6 +1,14 @@
 apiVersion: onepassword.com/v1
 kind: OnePasswordItem
 metadata:
+  name: flo-pro-env
+  namespace: flo-pro
+spec:
+  itemPath: "vaults/k8s-home/items/flo-pro-env"
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
   name: ghcr-secret
   namespace: flo-pro
   annotations:

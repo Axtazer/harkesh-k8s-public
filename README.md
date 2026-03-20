@@ -147,3 +147,4 @@ argocd app create pelican --repo git@github.com:Axtazer/harkesh-k8s.git --path p
 argocd app create cloudflared --repo git@github.com:Axtazer/harkesh-k8s.git --path cloudflared --dest-server https://kubernetes.default.svc --dest-namespace kube-system --sync-policy automated --revision master --grpc-web
 argocd app create monitoring --repo git@github.com:Axtazer/harkesh-k8s.git --path monitoring --dest-server https://kubernetes.default.svc --dest-namespace monitoring --sync-policy automated --revision master --grpc-web
 ```
+# test

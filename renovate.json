@@ -1,0 +1,11 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:best-practices"],
+  "kubernetes": {
+    "fileMatch": ["\\.yaml$"]
+  },
+  "automerge": false,
+  "labels": ["renovate", "dependencies"],
+  "reviewers": ["Axtazer"],
+  "schedule": ["before 6am on monday"]
+}

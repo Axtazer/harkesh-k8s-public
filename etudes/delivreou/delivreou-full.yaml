@@ -42,6 +42,23 @@ spec:
 
 ---
 # ─────────────────────────────────────────────────────────────
+# PERSISTENT VOLUME — Données MariaDB (hostPath)
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: delivreou-db-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/data/delivreou/mariadb
+
+---
+# ─────────────────────────────────────────────────────────────
 # PERSISTENT VOLUME CLAIM — Données MariaDB
 # ─────────────────────────────────────────────────────────────
 apiVersion: v1
@@ -55,7 +72,7 @@ spec:
   resources:
     requests:
       storage: 5Gi
-  # storageClassName: local-path   # décommenter si ton k8s utilise local-path provisioner
+  volumeName: delivreou-db-pv
 
 ---
 # ─────────────────────────────────────────────────────────────

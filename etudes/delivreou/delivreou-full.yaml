@@ -180,7 +180,7 @@ metadata:
     app: delivreou
     component: web
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: delivreou
@@ -218,11 +218,6 @@ spec:
           envFrom:
             - secretRef:
                 name: delivreou-env
-          env:
-            - name: APP_ENV
-              value: production
-            - name: APP_DEBUG
-              value: "false"
           readinessProbe:
             httpGet:
               path: /up

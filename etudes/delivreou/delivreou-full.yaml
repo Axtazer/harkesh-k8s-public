@@ -1,0 +1,247 @@
+# =============================================================
+# Délivre Où ? — Manifests Kubernetes complets
+# DATAGEST
+#
+# kubectl apply -f k8s-all-in-one.yaml
+# =============================================================
+
+# ─────────────────────────────────────────────────────────────
+# NAMESPACE
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: delivreou
+
+---
+# ─────────────────────────────────────────────────────────────
+# SECRET — Variables d'environnement Laravel
+#
+# Ne pas remplir ici. Créer via :
+#   kubectl create secret generic delivreou-env \
+#     --namespace=delivreou \
+#     --from-env-file=.env
+# ─────────────────────────────────────────────────────────────
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: delivreou-env
+  namespace: delivreou
+spec:
+  itemPath: "vaults/k8s-home/items/delivreou-env"
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: ghcr-secret
+  namespace: delivreou
+  annotations:
+    operator.1password.io/type: kubernetes.io/dockerconfigjson
+spec:
+  itemPath: "vaults/k8s-home/items/ghcr-token"
+
+---
+# ─────────────────────────────────────────────────────────────
+# PERSISTENT VOLUME CLAIM — Données MariaDB
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mariadb-data
+  namespace: delivreou
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # storageClassName: local-path   # décommenter si ton k8s utilise local-path provisioner
+
+---
+# ─────────────────────────────────────────────────────────────
+# DEPLOYMENT — MariaDB
+# ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivreou-db
+  namespace: delivreou
+  labels:
+    app: delivreou
+    component: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: delivreou
+      component: db
+  strategy:
+    type: Recreate   # Recreate obligatoire avec ReadWriteOnce
+  template:
+    metadata:
+      labels:
+        app: delivreou
+        component: db
+    spec:
+      containers:
+        - name: mariadb
+          image: mariadb:11
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: delivreou-env
+                  key: DB_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: delivreou-env
+                  key: DB_USERNAME
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: delivreou-env
+                  key: DB_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: delivreou-env
+                  key: DB_ROOT_PASSWORD
+          volumeMounts:
+            - name: mariadb-data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: mariadb-data
+          persistentVolumeClaim:
+            claimName: mariadb-data
+
+---
+# ─────────────────────────────────────────────────────────────
+# SERVICE — MariaDB (ClusterIP interne uniquement, aucun accès externe)
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivreou-db
+  namespace: delivreou
+spec:
+  selector:
+    app: delivreou
+    component: db
+  ports:
+    - port: 3306
+      targetPort: 3306
+  type: ClusterIP   # jamais NodePort/LoadBalancer — interne seulement
+
+---
+# ─────────────────────────────────────────────────────────────
+# DEPLOYMENT — Application Web Laravel
+# L'image est mise à jour automatiquement par le workflow CI
+# via le digest SHA256 immuable
+# ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivreou-web
+  namespace: delivreou
+  labels:
+    app: delivreou
+    component: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: delivreou
+      component: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0   # zéro downtime
+  template:
+    metadata:
+      labels:
+        app: delivreou
+        component: web
+    spec:
+      initContainers:
+        # Attend que MariaDB soit prêt avant de démarrer Laravel
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z delivreou-db 3306; do
+                echo "En attente de MariaDB..."; sleep 3;
+              done
+              echo "MariaDB disponible."
+      containers:
+        - name: web
+          # !! Ligne mise à jour automatiquement par le CI !!
+          image: ghcr.io/Axtazer/delivreou@sha256:25c86e776c0184cc9e3942b86da21a8bbd59dafd191496463f6163340f1af5c1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          envFrom:
+            - secretRef:
+                name: delivreou-env
+          env:
+            - name: APP_ENV
+              value: production
+            - name: APP_DEBUG
+              value: "false"
+          readinessProbe:
+            httpGet:
+              path: /up
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /up
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      imagePullSecrets:
+        - name: ghcr-secret
+
+---
+# ─────────────────────────────────────────────────────────────
+# SERVICE — Web (ClusterIP, exposé uniquement via cloudflared)
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivreou-web
+  namespace: delivreou
+spec:
+  selector:
+    app: delivreou
+    component: web
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP

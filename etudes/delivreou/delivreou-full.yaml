@@ -211,7 +211,7 @@ spec:
       containers:
         - name: web
           # !! Ligne mise à jour automatiquement par le CI !!
-          image: ghcr.io/axtazer/delivreou:sha-7d93329
+          image: ghcr.io/axtazer/delivreou@sha256:c554aa0acf632cad01706b8698c224abc880618682d3ddf396e1ec076763c836
           imagePullPolicy: Always
           ports:
             - containerPort: 80

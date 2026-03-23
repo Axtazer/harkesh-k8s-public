@@ -16,11 +16,6 @@ metadata:
 ---
 # ─────────────────────────────────────────────────────────────
 # SECRET — Variables d'environnement Laravel
-#
-# Ne pas remplir ici. Créer via :
-#   kubectl create secret generic delivreou-env \
-#     --namespace=delivreou \
-#     --from-env-file=.env
 # ─────────────────────────────────────────────────────────────
 apiVersion: onepassword.com/v1
 kind: OnePasswordItem
@@ -94,7 +89,7 @@ spec:
       app: delivreou
       component: db
   strategy:
-    type: Recreate   # Recreate obligatoire avec ReadWriteOnce
+    type: Recreate
   template:
     metadata:
       labels:
@@ -150,7 +145,7 @@ spec:
 
 ---
 # ─────────────────────────────────────────────────────────────
-# SERVICE — MariaDB (ClusterIP interne uniquement, aucun accès externe)
+# SERVICE — MariaDB
 # ─────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
@@ -164,13 +159,12 @@ spec:
   ports:
     - port: 3306
       targetPort: 3306
-  type: ClusterIP   # jamais NodePort/LoadBalancer — interne seulement
+  type: ClusterIP
 
 ---
 # ─────────────────────────────────────────────────────────────
 # DEPLOYMENT — Application Web Laravel
 # L'image est mise à jour automatiquement par le workflow CI
-# via le digest SHA256 immuable
 # ─────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
@@ -191,7 +185,7 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0   # zéro downtime
+      maxUnavailable: 0
   template:
     metadata:
       labels:
@@ -199,7 +193,6 @@ spec:
         component: web
     spec:
       initContainers:
-        # Attend que MariaDB soit prêt avant de démarrer Laravel
         - name: wait-for-db
           image: busybox:1.36
           command:
@@ -210,10 +203,19 @@ spec:
                 echo "En attente de MariaDB..."; sleep 3;
               done
               echo "MariaDB disponible."
+
+        # !! Ligne mise à jour automatiquement par le CI !!
+        - name: migrate
+          image: ghcr.io/axtazer/delivreou@sha256:e83f9046cb2e17be004323003d0849e5afedf44d312d413779faaa85886f1a33
+          command: ["php", "artisan", "migrate", "--force"]
+          envFrom:
+            - secretRef:
+                name: delivreou-env
+
       containers:
         - name: web
           # !! Ligne mise à jour automatiquement par le CI !!
-          image: ghcr.io/axtazer/delivreou@sha256:5def85972b80cfcbdd8430729f57adaf5ecfdc38a0022f420cba83e50177a543
+          image: ghcr.io/axtazer/delivreou@sha256:e83f9046cb2e17be004323003d0849e5afedf44d312d413779faaa85886f1a33
           imagePullPolicy: Always
           ports:
             - containerPort: 80
@@ -244,7 +246,7 @@ spec:
 
 ---
 # ─────────────────────────────────────────────────────────────
-# SERVICE — Web (ClusterIP, exposé uniquement via cloudflared)
+# SERVICE — Web
 # ─────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service

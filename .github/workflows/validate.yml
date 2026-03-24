@@ -76,8 +76,8 @@ jobs:
           )
 
           for image in "${CRITICAL_IMAGES[@]}"; do
-            # Cherche les occurrences de l'image sans digest sha256
-            matches=$(grep -rn "$image" --include="*.yaml" . \
+            # Cherche uniquement les lignes "image: <nom>" sans digest sha256
+            matches=$(grep -rn "image:.*${image}" --include="*.yaml" . \
               | grep -v ".github" \
               | grep -v "sha256:" || true)
             if [ -n "$matches" ]; then

@@ -26,8 +26,7 @@
     {
       "matchHost": "ghcr.io",
       "hostType": "docker",
-      "username": "axtazer",
-      "password": "{{ secrets.GHCR_TOKEN }}"
+      "token": "{{ secrets.GHCR_TOKEN }}"
     },
     {
       "matchHost": "https://api.github.com/repos/axtazer/flo-pro",

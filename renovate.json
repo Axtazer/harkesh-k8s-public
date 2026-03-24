@@ -1,142 +1,219 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Renovate config — Axtazer k8s infra",
-
-  "extends": ["config:base"],
+  "extends": [
+    "config:recommended"
+  ],
   "dependencyDashboard": true,
   "prConcurrentLimit": 10,
   "minimumReleaseAge": "3 days",
   "pinDigests": true,
   "automerge": false,
-
   "kubernetes": {
-    "fileMatch": [
-      "argocd\\.yaml$",
-      "bots/.+\\.yaml$",
-      "cloudflared/.+\\.yaml$",
-      "flo-pro/.+\\.yaml$",
-      "monitoring/.+\\.yaml$",
-      "pelican/.+\\.yaml$",
-      "storageServices/.+\\.yaml$",
-      "wings/.+\\.yaml$",
-      "etudes/.+\\.yaml$"
+    "managerFilePatterns": [
+      "/argocd\\.yaml$/",
+      "/bots/.+\\.yaml$/",
+      "/cloudflared/.+\\.yaml$/",
+      "/flo-pro/.+\\.yaml$/",
+      "/monitoring/.+\\.yaml$/",
+      "/pelican/.+\\.yaml$/",
+      "/storageServices/.+\\.yaml$/",
+      "/wings/.+\\.yaml$/",
+      "/etudes/.+\\.yaml$/"
     ]
   },
-
-  "regexManagers": [
+  "customManagers": [
     {
-      "fileMatch": ["^\\.github/workflows/validate\\.yml$"],
-      "matchStrings": ["KUBECONFORM_VERSION: \"(?<currentValue>[^\"]+)\""],
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/validate\\.yml$/"
+      ],
+      "matchStrings": [
+        "KUBECONFORM_VERSION: \"(?<currentValue>[^\"]+)\""
+      ],
       "depNameTemplate": "yannh/kubeconform",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v?(?<version>.*)$"
     }
   ],
-
   "packageRules": [
-
     {
       "description": "Nextcloud stack — toujours manuel, jamais automerge (migrations BDD irréversibles)",
-      "matchPackageNames": ["nextcloud", "mariadb", "redis"],
-      "matchFileNames": ["storageServices/nextcloud.yaml"],
+      "matchPackageNames": [
+        "nextcloud",
+        "mariadb",
+        "redis"
+      ],
+      "matchFileNames": [
+        "storageServices/nextcloud.yaml"
+      ],
       "groupName": "nextcloud-stack",
       "automerge": false,
-      "reviewers": ["Axtazer"],
-      "labels": ["nextcloud", "manual-review"]
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "nextcloud",
+        "manual-review"
+      ]
     },
-
     {
       "description": "Bloquer MariaDB major — 12.x incompatible Nextcloud + rolling release",
-      "matchPackageNames": ["mariadb"],
-      "matchUpdateTypes": ["major"],
+      "matchPackageNames": [
+        "mariadb"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "enabled": false
     },
-
     {
       "description": "Pelican stack — digest/patch/minor automerge, major manuel",
-      "matchPackageNames": ["ghcr.io/pelican-dev/panel", "ghcr.io/pelican-dev/wings"],
+      "matchPackageNames": [
+        "ghcr.io/pelican-dev/panel",
+        "ghcr.io/pelican-dev/wings"
+      ],
       "groupName": "pelican-stack",
       "automerge": true,
       "automergeType": "pr",
-      "matchUpdateTypes": ["digest", "patch", "minor"],
-      "labels": ["pelican", "automerge"]
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "pelican",
+        "automerge"
+      ]
     },
     {
       "description": "Pelican major — toujours manuel",
-      "matchPackageNames": ["ghcr.io/pelican-dev/panel", "ghcr.io/pelican-dev/wings"],
-      "matchUpdateTypes": ["major"],
+      "matchPackageNames": [
+        "ghcr.io/pelican-dev/panel",
+        "ghcr.io/pelican-dev/wings"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false,
-      "reviewers": ["Axtazer"]
+      "reviewers": [
+        "Axtazer"
+      ]
     },
-
     {
       "description": "Axtazia — digest automerge (image interne, pas de migration)",
-      "matchPackageNames": ["ghcr.io/axtazer/axtazia"],
+      "matchPackageNames": [
+        "ghcr.io/axtazer/axtazia"
+      ],
       "groupName": "axtazia",
       "automerge": true,
       "automergeType": "pr",
-      "matchUpdateTypes": ["digest"],
-      "labels": ["bot", "automerge"]
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "labels": [
+        "bot",
+        "automerge"
+      ]
     },
-
     {
       "description": "Cloudflared — digest/patch/minor automerge, major manuel",
-      "matchPackageNames": ["cloudflare/cloudflared"],
+      "matchPackageNames": [
+        "cloudflare/cloudflared"
+      ],
       "groupName": "cloudflared",
       "automerge": true,
       "automergeType": "pr",
-      "matchUpdateTypes": ["digest", "patch", "minor"],
-      "labels": ["infra", "automerge"]
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "infra",
+        "automerge"
+      ]
     },
-
     {
       "description": "cAdvisor — digest/patch automerge",
-      "matchPackageNames": ["gcr.io/cadvisor/cadvisor"],
+      "matchPackageNames": [
+        "gcr.io/cadvisor/cadvisor"
+      ],
       "groupName": "monitoring",
       "automerge": true,
       "automergeType": "pr",
-      "matchUpdateTypes": ["digest", "patch"],
-      "labels": ["monitoring", "automerge"]
+      "matchUpdateTypes": [
+        "digest",
+        "patch"
+      ],
+      "labels": [
+        "monitoring",
+        "automerge"
+      ]
     },
-
     {
       "description": "Delivreou — désactivé (token read:packages manquant)",
-      "matchPackageNames": ["ghcr.io/axtazer/delivreou"],
+      "matchPackageNames": [
+        "ghcr.io/axtazer/delivreou"
+      ],
       "enabled": false
     },
-
     {
       "description": "flo-pro — désactivé jusqu'à pinning du digest SHA",
-      "matchPackageNames": ["ghcr.io/axtazer/flo-pro"],
+      "matchPackageNames": [
+        "ghcr.io/axtazer/flo-pro"
+      ],
       "enabled": false
     },
-
     {
       "description": "busybox — patch/minor automerge, major manuel",
-      "matchPackageNames": ["busybox"],
+      "matchPackageNames": [
+        "busybox"
+      ],
       "groupName": "delivreou-utils",
       "automerge": true,
       "automergeType": "pr",
-      "matchUpdateTypes": ["digest", "patch", "minor"],
-      "labels": ["utils", "automerge"]
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "utils",
+        "automerge"
+      ]
     },
-
     {
       "description": "GitHub Actions — digest/patch/minor automerge",
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "groupName": "github-actions",
       "automerge": true,
       "automergeType": "pr",
-      "matchUpdateTypes": ["digest", "patch", "minor"],
-      "labels": ["ci", "automerge"]
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "ci",
+        "automerge"
+      ]
     },
-
     {
       "description": "Catch-all : toute major non couverte = manuel + reviewer",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false,
-      "reviewers": ["Axtazer"],
-      "labels": ["major", "manual-review"]
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "major",
+        "manual-review"
+      ]
     }
   ]
 }

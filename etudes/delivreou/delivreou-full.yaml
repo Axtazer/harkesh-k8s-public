@@ -11,7 +11,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: delivreou
+  name: etudes
 
 ---
 # ─────────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ apiVersion: onepassword.com/v1
 kind: OnePasswordItem
 metadata:
   name: delivreou-env
-  namespace: delivreou
+  namespace: etudes
 spec:
   itemPath: "vaults/k8s-home/items/delivreou-env"
 ---
@@ -29,7 +29,7 @@ apiVersion: onepassword.com/v1
 kind: OnePasswordItem
 metadata:
   name: ghcr-secret
-  namespace: delivreou
+  namespace: etudes
   annotations:
     operator.1password.io/type: kubernetes.io/dockerconfigjson
 spec:
@@ -60,7 +60,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mariadb-data
-  namespace: delivreou
+  namespace: etudes
 spec:
   accessModes:
     - ReadWriteOnce
@@ -77,7 +77,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: delivreou-db
-  namespace: delivreou
+  namespace: etudes
   labels:
     app: delivreou
     component: db
@@ -151,7 +151,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: delivreou-db
-  namespace: delivreou
+  namespace: etudes
 spec:
   selector:
     app: delivreou
@@ -170,7 +170,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: delivreou-web
-  namespace: delivreou
+  namespace: etudes
   labels:
     app: delivreou
     component: web
@@ -252,7 +252,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: delivreou-web
-  namespace: delivreou
+  namespace: etudes
 spec:
   selector:
     app: delivreou

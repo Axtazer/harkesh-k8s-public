@@ -1,4 +1,5 @@
 name: Validate YAML
+
 on:
   pull_request:
     branches: [master]
@@ -6,18 +7,91 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      
-      - name: Install kubeconform
+
+      # ── 1. Lint YAML syntax (tabs, indentation, trailing spaces) ─────────────
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint YAML syntax
         run: |
-          wget https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          yamllint -d '{
+            extends: default,
+            rules: {
+              line-length: {max: 200},
+              comments: disable,
+              truthy: disable
+            }
+          }' $(find . -name "*.yaml" -not -path "./.github/*")
+
+      # ── 2. Install kubeconform (version pinnée) ───────────────────────────────
+      - name: Install kubeconform
+        env:
+          KUBECONFORM_VERSION: "0.7.0"
+        run: |
+          wget -q "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           tar xf kubeconform-linux-amd64.tar.gz
           mv kubeconform /usr/local/bin/
 
-      - name: Validate YAML files
+      # ── 3. Validate standard k8s resources ───────────────────────────────────
+      - name: Validate Kubernetes manifests (standard resources)
         run: |
           find . -name "*.yaml" -not -path "./.github/*" | xargs kubeconform \
-            -ignore-missing-schemas \
             -summary \
-            -kubernetes-version 1.32.0
+            -strict \
+            -kubernetes-version 1.32.0 \
+            -skip "Ingress,OnePasswordItem,ServiceMonitor" \
+            -ignore-filename-pattern ".*renovate.*"
+
+      # ── 4. Validate CRDs (ArgoCD Application + AppProject) ───────────────────
+      # Schemas communautaires : https://github.com/datreeio/CRDs-catalog
+      - name: Validate ArgoCD CRDs
+        run: |
+          find . -name "*.yaml" -not -path "./.github/*" | xargs kubeconform \
+            -summary \
+            -strict \
+            -kubernetes-version 1.32.0 \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -ignore-missing-schemas \
+            -ignore-filename-pattern ".*renovate.*"
+
+      # ── 5. Vérification des digests SHA présents (sécurité supply chain) ─────
+      # Vérifie que les images critiques (nextcloud, mariadb, pelican) ont un digest pinné
+      - name: Check critical images are digest-pinned
+        run: |
+          echo "=== Checking digest pinning on critical images ==="
+          FAILED=0
+
+          CRITICAL_IMAGES=(
+            "nextcloud"
+            "mariadb"
+            "ghcr.io/pelican-dev/panel"
+            "ghcr.io/pelican-dev/wings"
+            "cloudflare/cloudflared"
+            "gcr.io/cadvisor/cadvisor"
+            "ghcr.io/axtazer/axtazia"
+          )
+
+          for image in "${CRITICAL_IMAGES[@]}"; do
+            # Cherche uniquement les lignes "image: <nom>" sans digest sha256
+            matches=$(grep -rn "image:.*${image}" --include="*.yaml" . \
+              | grep -v ".github" \
+              | grep -v "sha256:" || true)
+            if [ -n "$matches" ]; then
+              echo "❌ Image non pinnée par digest SHA : $image"
+              echo "$matches"
+              FAILED=1
+            else
+              echo "✅ $image — digest pinné"
+            fi
+          done
+
+          if [ $FAILED -eq 1 ]; then
+            echo ""
+            echo "Des images critiques ne sont pas pinnées par digest SHA."
+            echo "Utilise 'docker inspect --format={{.Id}} <image>' ou laisse Renovate pinner automatiquement."
+            exit 1
+          fi

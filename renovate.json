@@ -1,22 +1,152 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:best-practices"
-  ],
-  "kubernetes": {
-    "managerFilePatterns": [
-      "/\\.yaml$/"
-    ]
-  },
+  "description": "Renovate config — Axtazer k8s infra",
+
+  // ─── Global behaviour ────────────────────────────────────────────────────────
+  "extends": ["config:base"],
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 10,
+  "minimumReleaseAge": "3 days",   // évite les .0 frais (cf. NC 33.0.0)
+  "pinDigests": true,              // toutes les images épinglées en SHA — reproductible + sécurisé
+
+  // Automerge global désactivé par défaut ; activé au cas par cas dans packageRules
   "automerge": false,
-  "labels": [
-    "renovate",
-    "dependencies"
+
+  // ─── Regex managers — versions inline dans les workflows ────────────────────
+  "regexManagers": [
+    {
+      "fileMatch": ["^\\.github/workflows/validate\\.yml$"],
+      "matchStrings": ["KUBECONFORM_VERSION: \"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "yannh/kubeconform",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    }
   ],
-  "reviewers": [
-    "Axtazer"
-  ],
-  "schedule": [
-    "before 6am on monday"
+
+  // ─── Groupes par service ─────────────────────────────────────────────────────
+  // Une PR = un service = un test staging cohérent
+  "packageRules": [
+
+    // ── 1. Nextcloud stack (nextcloud + mariadb + redis) ─────────────────────
+    {
+      "description": "Nextcloud stack — toujours manuel, jamais automerge (migrations BDD irréversibles)",
+      "matchPackageNames": ["nextcloud", "mariadb"],
+      "matchFileNames": ["storageServices/nextcloud.yaml"],
+      "groupName": "nextcloud-stack",
+      "automerge": false,
+      "reviewers": ["Axtazer"],
+      "labels": ["nextcloud", "manual-review"]
+    },
+    {
+      "description": "Redis dans la stack Nextcloud — digest automerge ok (pas de migration)",
+      "matchPackageNames": ["redis"],
+      "matchFileNames": ["storageServices/nextcloud.yaml"],
+      "groupName": "nextcloud-stack",
+      "automerge": false   // groupé avec nextcloud donc suit la règle manuelle
+    },
+
+    // ── 2. Bloquer MariaDB major (12.x = rolling release, non supporté NC) ───
+    {
+      "description": "Bloquer MariaDB major — 12.x incompatible Nextcloud + rolling release",
+      "matchPackageNames": ["mariadb"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+
+    // ── 3. Pelican stack (panel + wings) ─────────────────────────────────────
+    {
+      "description": "Pelican stack — digest automerge ok, major manuel",
+      "matchPackageNames": ["ghcr.io/pelican-dev/panel", "ghcr.io/pelican-dev/wings"],
+      "groupName": "pelican-stack",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["digest", "patch", "minor"],
+      "labels": ["pelican", "automerge"]
+    },
+    {
+      "description": "Pelican major — toujours manuel",
+      "matchPackageNames": ["ghcr.io/pelican-dev/panel", "ghcr.io/pelican-dev/wings"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "reviewers": ["Axtazer"]
+    },
+
+    // ── 4. Axtazia bot ────────────────────────────────────────────────────────
+    {
+      "description": "Axtazia — digest automerge (image interne, pas de migration)",
+      "matchPackageNames": ["ghcr.io/axtazer/axtazia"],
+      "groupName": "axtazia",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["digest"],
+      "labels": ["bot", "automerge"]
+    },
+
+    // ── 5. Cloudflared ───────────────────────────────────────────────────────
+    {
+      "description": "Cloudflared — digest/patch automerge, major manuel",
+      "matchPackageNames": ["cloudflare/cloudflared"],
+      "groupName": "cloudflared",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["digest", "patch", "minor"],
+      "labels": ["infra", "automerge"]
+    },
+
+    // ── 6. cAdvisor (monitoring) ─────────────────────────────────────────────
+    {
+      "description": "cAdvisor — digest automerge",
+      "matchPackageNames": ["gcr.io/cadvisor/cadvisor"],
+      "groupName": "monitoring",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["digest", "patch"],
+      "labels": ["monitoring", "automerge"]
+    },
+
+    // ── 7. Delivreou — désactivé jusqu'à fix token GHCR ─────────────────────
+    {
+      "description": "Delivreou — désactivé (Renovate ne peut pas résoudre le digest GHCR, token read:packages manquant)",
+      "matchPackageNames": ["ghcr.io/axtazer/delivreou"],
+      "enabled": false
+    },
+
+    // ── 8. flo-pro — désactivé jusqu'au pinning du digest dans le YAML ───────
+    {
+      "description": "flo-pro — tag latest non pinné, désactivé jusqu'à ajout du digest SHA dans web_flo-pro.yaml",
+      "matchPackageNames": ["ghcr.io/axtazer/flo-pro"],
+      "enabled": false
+    },
+
+    // ── 9. busybox (init-container delivreou) ────────────────────────────────
+    {
+      "description": "busybox — patch/minor automerge, major manuel",
+      "matchPackageNames": ["busybox"],
+      "groupName": "delivreou-utils",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["digest", "patch", "minor"],
+      "labels": ["utils", "automerge"]
+    },
+
+    // ── 10. GitHub Actions ───────────────────────────────────────────────────
+    {
+      "description": "GitHub Actions — digest automerge pour patch/minor",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["digest", "patch", "minor"],
+      "labels": ["ci", "automerge"]
+    },
+
+    // ── 11. Toutes les majors non couvertes = manuel ──────────────────────────
+    {
+      "description": "Catch-all : toute major non couverte ci-dessus = manuel + reviewer",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "reviewers": ["Axtazer"],
+      "labels": ["major", "manual-review"]
+    }
   ]
 }

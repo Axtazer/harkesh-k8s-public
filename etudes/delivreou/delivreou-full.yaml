@@ -221,7 +221,7 @@ spec:
         # Lance les migrations avant le démarrage du serveur web
         - name: migrate
           # !! Ligne mise à jour automatiquement par le CI !!
-          image: ghcr.io/axtazer/delivreou@sha256:a6d39da5baf4e07f456f74f9f56a9e2b0faf507ee67cea39d9d5df374ca3a814
+          image: ghcr.io/axtazer/delivreou@sha256:03c9be7f94d61f08c752a6a2eaf7208f2a1a46743425af6d4458e436567a3023
           command: ["php", "artisan", "migrate", "--force"]
           envFrom:
             - secretRef:
@@ -237,7 +237,7 @@ spec:
       containers:
         - name: web
           # !! Ligne mise à jour automatiquement par le CI !!
-          image: ghcr.io/axtazer/delivreou@sha256:a6d39da5baf4e07f456f74f9f56a9e2b0faf507ee67cea39d9d5df374ca3a814
+          image: ghcr.io/axtazer/delivreou@sha256:03c9be7f94d61f08c752a6a2eaf7208f2a1a46743425af6d4458e436567a3023
           imagePullPolicy: Always
           ports:
             - containerPort: 80

@@ -26,6 +26,7 @@
     {
       "matchHost": "ghcr.io",
       "hostType": "docker",
+      "username": "axtazer",
       "password": "{{ secrets.GHCR_TOKEN }}"
     },
     {

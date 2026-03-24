@@ -22,6 +22,14 @@
       "/etudes/.+\\.yaml$/"
     ]
   },
+    "hostRules": [
+    {
+      "matchHost": "ghcr.io",
+      "hostType": "docker",
+      "username": "axtazer",
+      "password": "{{ secrets.GHCR_TOKEN }}"
+    }
+  ],
   "customManagers": [
     {
       "customType": "regex",

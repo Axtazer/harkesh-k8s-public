@@ -24,6 +24,7 @@ metadata:
   namespace: etudes
 spec:
   itemPath: "vaults/k8s-home/items/delivreou-env"
+
 ---
 apiVersion: onepassword.com/v1
 kind: OnePasswordItem
@@ -38,6 +39,7 @@ spec:
 ---
 # ─────────────────────────────────────────────────────────────
 # PERSISTENT VOLUME — Données MariaDB (hostPath)
+# claimRef réservé exclusivement au PVC dans etudes
 # ─────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: PersistentVolume
@@ -51,6 +53,9 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   hostPath:
     path: /mnt/hdd/data/delivreou/mariadb
+  claimRef:
+    namespace: etudes
+    name: mariadb-data
 
 ---
 # ─────────────────────────────────────────────────────────────
@@ -145,7 +150,7 @@ spec:
 
 ---
 # ─────────────────────────────────────────────────────────────
-# SERVICE — MariaDB
+# SERVICE — MariaDB (ClusterIP, interne uniquement)
 # ─────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
@@ -193,6 +198,7 @@ spec:
         component: web
     spec:
       initContainers:
+        # Attend que MariaDB accepte des connexions
         - name: wait-for-db
           image: busybox:1.36
           command:
@@ -203,14 +209,29 @@ spec:
                 echo "En attente de MariaDB..."; sleep 3;
               done
               echo "MariaDB disponible."
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
 
-        # !! Ligne mise à jour automatiquement par le CI !!
+        # Lance les migrations avant le démarrage du serveur web
         - name: migrate
+          # !! Ligne mise à jour automatiquement par le CI !!
           image: ghcr.io/axtazer/delivreou@sha256:cc80c74d99e48d3dcffab8aaa90253a550a496199c525de3fb3705ec4a7ba3bd
           command: ["php", "artisan", "migrate", "--force"]
           envFrom:
             - secretRef:
                 name: delivreou-env
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
 
       containers:
         - name: web
@@ -222,18 +243,28 @@ spec:
           envFrom:
             - secretRef:
                 name: delivreou-env
+          # startupProbe : laisse 150s max au cold start avant
+          # que readiness/liveness ne prennent le relais
+          startupProbe:
+            httpGet:
+              path: /up
+              port: 80
+            failureThreshold: 30
+            periodSeconds: 5
           readinessProbe:
             httpGet:
               path: /up
               port: 80
-            initialDelaySeconds: 10
+            initialDelaySeconds: 0
             periodSeconds: 5
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /up
               port: 80
-            initialDelaySeconds: 30
+            initialDelaySeconds: 0
             periodSeconds: 15
+            failureThreshold: 3
           resources:
             requests:
               cpu: 100m
@@ -246,7 +277,7 @@ spec:
 
 ---
 # ─────────────────────────────────────────────────────────────
-# SERVICE — Web
+# SERVICE — Web (ClusterIP, exposé via tunnel Cloudflare k8s)
 # ─────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service

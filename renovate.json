@@ -12,6 +12,17 @@
   // Automerge global désactivé par défaut ; activé au cas par cas dans packageRules
   "automerge": false,
 
+  // ─── Regex managers — versions inline dans les workflows ────────────────────
+  "regexManagers": [
+    {
+      "fileMatch": ["^\\.github/workflows/validate\\.yml$"],
+      "matchStrings": ["KUBECONFORM_VERSION: \"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "yannh/kubeconform",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    }
+  ],
+
   // ─── Groupes par service ─────────────────────────────────────────────────────
   // Une PR = un service = un test staging cohérent
   "packageRules": [

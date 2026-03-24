@@ -117,6 +117,38 @@
       ]
     },
     {
+      "description": "flo-pro — digest automerge (image interne)",
+      "matchPackageNames": [
+        "ghcr.io/axtazer/flo-pro"
+      ],
+      "groupName": "flo-pro",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "labels": [
+        "flo-pro",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Delivreou — digest automerge (image interne)",
+      "matchPackageNames": [
+        "ghcr.io/axtazer/delivreou"
+      ],
+      "groupName": "delivreou",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "labels": [
+        "delivreou",
+        "automerge"
+      ]
+    },
+    {
       "description": "Cloudflared — digest/patch/minor automerge, major manuel",
       "matchPackageNames": [
         "cloudflare/cloudflared"
@@ -150,20 +182,6 @@
         "monitoring",
         "automerge"
       ]
-    },
-    {
-      "description": "Delivreou — désactivé (token read:packages manquant)",
-      "matchPackageNames": [
-        "ghcr.io/axtazer/delivreou"
-      ],
-      "enabled": false
-    },
-    {
-      "description": "flo-pro — désactivé jusqu'à pinning du digest SHA",
-      "matchPackageNames": [
-        "ghcr.io/axtazer/flo-pro"
-      ],
-      "enabled": false
     },
     {
       "description": "busybox — patch/minor automerge, major manuel",

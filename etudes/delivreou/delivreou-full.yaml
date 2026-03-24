@@ -2,12 +2,13 @@
 # Délivre Où ? — Manifests Kubernetes complets
 # DATAGEST
 #
-# kubectl apply -f k8s-all-in-one.yaml
+# kubectl apply -f delivreou-full.yaml
 # =============================================================
 
 # ─────────────────────────────────────────────────────────────
 # NAMESPACE
 # ─────────────────────────────────────────────────────────────
+---
 apiVersion: v1
 kind: Namespace
 metadata:

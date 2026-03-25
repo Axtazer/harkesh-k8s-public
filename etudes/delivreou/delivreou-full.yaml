@@ -220,7 +220,7 @@ spec:
 
         # Lance les migrations avant le démarrage du serveur web
         - name: migrate
-          image: ghcr.io/axtazer/delivreou:latest@sha256:8dfe32e72f891b98606217826f953e77ed790d5480f8bcec47d8aaee72c21da7
+          image: ghcr.io/axtazer/delivreou:latest@sha256:a1aa4e88ee28b1dbb488b0e2801234ad847338dfdfa7e2a3e8364c84b65c0698
           command: ["php", "artisan", "migrate", "--force"]
           envFrom:
             - secretRef:
@@ -235,7 +235,7 @@ spec:
 
       containers:
         - name: web
-          image: ghcr.io/axtazer/delivreou:latest@sha256:8dfe32e72f891b98606217826f953e77ed790d5480f8bcec47d8aaee72c21da7
+          image: ghcr.io/axtazer/delivreou:latest@sha256:a1aa4e88ee28b1dbb488b0e2801234ad847338dfdfa7e2a3e8364c84b65c0698
           imagePullPolicy: Always
           ports:
             - containerPort: 80

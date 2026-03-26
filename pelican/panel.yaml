@@ -40,6 +40,11 @@ spec:
               value: "true"
             - name: APP_TIMEZONE
               value: "Europe/Paris"
+            # Fix proxy redirect — Caddy doit faire confiance aux headers X-Forwarded-* de cloudflared
+            - name: CADDY_TRUSTED_PROXIES
+              value: "trusted_proxies static private_ranges"
+            - name: TRUSTED_PROXIES
+              value: "*"
           volumeMounts:
             - name: pelican-data
               mountPath: /pelican-data
@@ -55,7 +60,7 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 80
-            initialDelaySeconds: 90
+            initialDelaySeconds: 15   # réduit de 90s → 15s
             periodSeconds: 10
             timeoutSeconds: 5
             successThreshold: 1
@@ -63,7 +68,7 @@ spec:
           livenessProbe:
             tcpSocket:
               port: 80
-            initialDelaySeconds: 120
+            initialDelaySeconds: 30   # réduit de 120s → 30s
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 6
@@ -98,7 +103,7 @@ spec:
   type: ExternalName
   externalName: wings-svc.wings.svc.cluster.local
 ---
-# --- Ingress (optionnel, mais pratique de l'avoir ici aussi) ---
+# --- Ingress ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

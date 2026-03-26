@@ -176,11 +176,11 @@ Les images Docker sont suivies et mises à jour automatiquement via Renovate (co
 
 | Image                      | Stratégie                          |
 |----------------------------|------------------------------------|
-| `nextcloud` + `mariadb` + `redis` | Manuel — review obligatoire  |
+| `nextcloud` + `mariadb` + `redis` | Manuel — review obligatoire |
 | `ghcr.io/pelican-dev/*`    | Automerge digest/patch/minor       |
 | `cloudflare/cloudflared`   | Automerge digest/patch/minor       |
 | `gcr.io/cadvisor/cadvisor` | Automerge digest/patch             |
 | `ghcr.io/axtazer/axtazia`  | Automerge digest                   |
-| `ghcr.io/axtazer/delivreou`| Désactivé (token GHCR manquant)    |
-| `ghcr.io/axtazer/flo-pro`  | Désactivé (digest SHA manquant)    |
+| `ghcr.io/axtazer/delivreou` | Automerge digest/patch/minor      |
+| `ghcr.io/axtazer/flo-pro`   | Automerge digest/patch/minor      |
 | Toutes les majors          | Manuel — review obligatoire        |

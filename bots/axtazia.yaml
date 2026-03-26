@@ -20,7 +20,7 @@ spec:
         - name: ghcr-auth
       containers:
         - name: bot
-          image: ghcr.io/axtazer/axtazia:latest@sha256:e6682968f44525d3590418c53cac5d868f1fb3bcecfd560bc979273a5f095f7c
+          image: ghcr.io/axtazer/axtazia:latest@sha256:abe1cfed1af987d497151585cfc493b4dccf2e5d1b746ecf2c4a3d01b74376e8
           imagePullPolicy: Always
           env:
             # --- SECRETS ---

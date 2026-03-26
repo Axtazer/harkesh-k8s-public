@@ -22,14 +22,6 @@
       "/etudes/.+\\.yaml$/"
     ]
   },
-  "hostRules": [
-    {
-      "matchHost": "ghcr.io",
-      "hostType": "docker",
-      "username": "axtazer",
-      "password": "{{ secrets.GHCR_TOKEN }}"
-    }
-  ],
   "customManagers": [
     {
       "customType": "regex",
@@ -114,6 +106,7 @@
         "ghcr.io/axtazer/axtazia"
       ],
       "groupName": "axtazia",
+      "minimumReleaseAge": "0 days",
       "automerge": true,
       "automergeType": "pr",
       "matchUpdateTypes": [
@@ -130,6 +123,7 @@
         "ghcr.io/axtazer/flo-pro"
       ],
       "groupName": "flo-pro",
+      "minimumReleaseAge": "0 days",
       "automerge": true,
       "automergeType": "pr",
       "matchUpdateTypes": [
@@ -146,6 +140,7 @@
         "ghcr.io/axtazer/delivreou"
       ],
       "groupName": "delivreou",
+      "minimumReleaseAge": "0 days",
       "automerge": true,
       "automergeType": "pr",
       "matchUpdateTypes": [

@@ -22,45 +22,9 @@ spec:
         - name: bot
           image: ghcr.io/axtazer/axtazia:latest@sha256:d3d2fa7419b3ce0f7dad9b9f00b648b7aed21847fe3e80d934ecdbe2b5b8230e
           imagePullPolicy: Always
-          env:
-            # --- SECRETS ---
-            - name: DISCORD_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: axtazia-secrets
-                  key: DISCORD_TOKEN
-            - name: NASA_APOD_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: axtazia-secrets
-                  key: NASA_APOD_KEY
-            - name: WOL_API_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: axtazia-secrets
-                  key: WOL_API_TOKEN
-
-            # --- CONFIG ---
-            - name: CLIENT_ID
-              valueFrom:
-                configMapKeyRef:
-                  name: axtazia-config
-                  key: CLIENT_ID
-            - name: GUILD_ID
-              valueFrom:
-                configMapKeyRef:
-                  name: axtazia-config
-                  key: GUILD_ID
-            - name: OWNER_ID
-              valueFrom:
-                configMapKeyRef:
-                  name: axtazia-config
-                  key: OWNER_ID
-            - name: WOL_API_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: axtazia-config
-                  key: WOL_API_URL
+          envFrom:
+            - secretRef:
+                name: axtazia-secrets
 
           resources:
             requests:
@@ -77,14 +41,3 @@ metadata:
   namespace: default
 spec:
   itemPath: "vaults/k8s-home/items/axtazia-bot"
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: axtazia-config
-  namespace: default
-data:
-  CLIENT_ID: "883263767813685258"
-  GUILD_ID: "798235492503257148"
-  OWNER_ID: "496722398310039552"
-  WOL_API_URL: https://wol.castaldo.fr/wake

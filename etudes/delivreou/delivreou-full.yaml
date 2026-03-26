@@ -27,17 +27,6 @@ spec:
   itemPath: "vaults/k8s-home/items/delivreou-env"
 
 ---
-apiVersion: onepassword.com/v1
-kind: OnePasswordItem
-metadata:
-  name: ghcr-secret
-  namespace: etudes
-  annotations:
-    operator.1password.io/type: kubernetes.io/dockerconfigjson
-spec:
-  itemPath: "vaults/k8s-home/items/ghcr-token"
-
----
 # ─────────────────────────────────────────────────────────────
 # PERSISTENT VOLUME — Données MariaDB (hostPath)
 # claimRef réservé exclusivement au PVC dans etudes

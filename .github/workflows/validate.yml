@@ -72,7 +72,6 @@ jobs:
             "ghcr.io/pelican-dev/wings"
             "cloudflare/cloudflared"
             "gcr.io/cadvisor/cadvisor"
-            "ghcr.io/axtazer/axtazia"
           )
 
           for image in "${CRITICAL_IMAGES[@]}"; do

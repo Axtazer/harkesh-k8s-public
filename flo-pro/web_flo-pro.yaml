@@ -7,16 +7,6 @@ metadata:
 spec:
   itemPath: "vaults/k8s-home/items/flo-pro-env"
 ---
-apiVersion: onepassword.com/v1
-kind: OnePasswordItem
-metadata:
-  name: ghcr-secret
-  namespace: flo-pro
-  annotations:
-    operator.1password.io/type: kubernetes.io/dockerconfigjson
-spec:
-  itemPath: "vaults/k8s-home/items/ghcr-token"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:

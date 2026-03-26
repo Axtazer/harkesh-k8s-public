@@ -40,11 +40,8 @@ spec:
               value: "true"
             - name: APP_TIMEZONE
               value: "Europe/Paris"
-            # Fix proxy redirect — Caddy doit faire confiance aux headers X-Forwarded-* de cloudflared
             - name: CADDY_TRUSTED_PROXIES
               value: "trusted_proxies static private_ranges"
-            - name: TRUSTED_PROXIES
-              value: "*"
           volumeMounts:
             - name: pelican-data
               mountPath: /pelican-data

@@ -137,6 +137,28 @@ Tous les secrets sont dans le vault `k8s-home` sur 1Password et injectés automa
 | `cloudflared`        | `cloudflared-token`    | `kube-system`|
 | `delivreou`          | `delivreou-env`        | `delivreou`  |
 
+## Secrets gérés manuellement
+
+Certains secrets ne peuvent pas être gérés via 1Password Connect Operator 
+car celui-ci ne supporte pas le type `kubernetes.io/dockerconfigjson` (bug #95).
+
+### ghcr-secret (flo-pro + etudes)
+À recréer manuellement après chaque réinstallation :
+\```bash
+kubectl create secret docker-registry ghcr-secret \
+  --docker-server=ghcr.io \
+  --docker-username=Axtazer \
+  --docker-password=GHCR_TOKEN \
+  -n flo-pro
+
+kubectl create secret docker-registry ghcr-secret \
+  --docker-server=ghcr.io \
+  --docker-username=Axtazer \
+  --docker-password=GHCR_TOKEN \
+  -n etudes
+\```
+Le token GHCR est stocké dans 1Password → vault `k8s-home` → item `ghcr-token`.
+
 ## Domaines
 
 Tous les domaines passent par le **Cloudflare Tunnel** — aucun port exposé sur le routeur.

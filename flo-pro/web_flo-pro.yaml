@@ -26,7 +26,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: flo-pro
-          image: ghcr.io/axtazer/flo-pro:latest@sha256:ec5c9037f3ecbc7c343fbdabb4c9eb3388237f103fd64ea09b3a606830a5a7ab
+          image: ghcr.io/axtazer/flo-pro:latest@sha256:923451c559ff7b37e848bed0981547d362d3d506af681042ba309d4ce8287d44
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

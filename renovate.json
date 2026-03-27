@@ -9,6 +9,14 @@
   "minimumReleaseAge": "3 days",
   "pinDigests": true,
   "automerge": false,
+  "hostRules": [
+    {
+      "matchHost": "ghcr.io",
+      "hostType": "docker",
+      "username": "axtazer",
+      "password": "{{ secrets.GHCR_TOKEN }}"
+    }
+  ],
   "kubernetes": {
     "managerFilePatterns": [
       "/argocd\\.yaml$/",

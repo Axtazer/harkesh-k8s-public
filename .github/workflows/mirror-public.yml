@@ -1,0 +1,32 @@
+name: Mirror to public repo
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      # Remplace le vrai domaine par le placeholder avant de pousser
+      - name: Sanitize domain
+        run: |
+          find . -name "*.yaml" -o -name "*.yml" -o -name "*.md" | \
+            grep -v ".git/" | \
+            xargs sed -i 's/${{ secrets.REAL_DOMAIN }}/mydomain.fr/g'
+
+      - name: Push to public mirror
+        env:
+          MIRROR_URL: ${{ secrets.PUBLIC_MIRROR_URL }}
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: sanitize domain for public mirror"
+          git push "$MIRROR_URL" HEAD:master --force

@@ -1,0 +1,47 @@
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: dev-flo-pro-env
+  namespace: flo-pro
+spec:
+  itemPath: "vaults/k8s-home/items/flo-pro-env"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-flo-pro
+  namespace: flo-pro
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dev-flo-pro
+  template:
+    metadata:
+      labels:
+        app: dev-flo-pro
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: dev-flo-pro
+          image: ghcr.io/axtazer/flo-pro:dev@sha256:7cb8399071f8c2f0478203b4ee6455cb8db117b5392254c54ebbabfb213fecf7
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3001
+          envFrom:
+            - secretRef:
+                name: dev-flo-pro-env
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dev-flo-pro
+  namespace: flo-pro
+spec:
+  selector:
+    app: dev-flo-pro
+  ports:
+    - port: 80
+      targetPort: 3001

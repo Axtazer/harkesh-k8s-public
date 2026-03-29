@@ -16,7 +16,8 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 │   └── delivreou/
 │       └── delivreou-full.yaml   # Délivre Où ? (app + MariaDB)
 ├── flo-pro/
-│   └── web_flo-pro.yaml          # Flo-Pro web
+│   ├── web_flo-pro.yaml          # Flo-Pro web
+│   └── dev_flo-pro.yaml          # Dev Flo-Pro web
 ├── monitoring/
 │   └── cadvisor.yaml             # cAdvisor (DaemonSet)
 ├── pelican/
@@ -160,10 +161,15 @@ Tous les domaines passent par le **Cloudflare Tunnel** — aucun port exposé su
 
 | Domaine                  | Service         |
 |--------------------------|-----------------|
+| `castaldo.fr`            | Flo-pro         |
+| `dev-pro.castaldo.fr`    | Dev Flo-pro     |
 | `argocd.castaldo.fr`     | ArgoCD          |
+| `grafana.castaldo.fr`    | Grafana         |
 | `panel.castaldo.fr`      | Pelican Panel   |
 | `wings.castaldo.fr`      | Wings           |
-| `nextcloud.castaldo.fr`  | Nextcloud       |
+| `nas.castaldo.fr`        | Nextcloud       |
+| `delivreou.castaldo.fr`  | Delivre Où?     |
+
 
 ## Renovate
 

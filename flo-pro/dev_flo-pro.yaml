@@ -21,7 +21,7 @@ spec:
           image: ghcr.io/axtazer/flo-pro:dev@sha256:7cb8399071f8c2f0478203b4ee6455cb8db117b5392254c54ebbabfb213fecf7
           imagePullPolicy: Always
           ports:
-            - containerPort: 3001
+            - containerPort: 3000
           envFrom:
             - secretRef:
                 name: flo-pro-env
@@ -36,4 +36,4 @@ spec:
     app: dev-flo-pro
   ports:
     - port: 81
-      targetPort: 3001
+      targetPort: 3000

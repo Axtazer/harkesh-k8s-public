@@ -142,22 +142,17 @@ Tous les secrets sont dans le vault `k8s-home` sur 1Password et injectés automa
 Certains secrets ne peuvent pas être gérés via 1Password Connect Operator 
 car celui-ci ne supporte pas le type `kubernetes.io/dockerconfigjson` (bug #95).
 
-### ghcr-secret (flo-pro + etudes)
+### ghcr-secret
 À recréer manuellement après chaque réinstallation :
-\```bash
+```bash
 kubectl create secret docker-registry ghcr-secret \
   --docker-server=ghcr.io \
   --docker-username=Axtazer \
   --docker-password=GHCR_TOKEN \
-  -n flo-pro
-
-kubectl create secret docker-registry ghcr-secret \
-  --docker-server=ghcr.io \
-  --docker-username=Axtazer \
-  --docker-password=GHCR_TOKEN \
-  -n etudes
-\```
+  -n <namespace>
+```
 Le token GHCR est stocké dans 1Password → vault `k8s-home` → item `ghcr-token`.
+Or celui-ci est mal intépréter et ce retrouve définis en Opaque.
 
 ## Domaines
 

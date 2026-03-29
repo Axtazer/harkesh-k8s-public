@@ -37,11 +37,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: dev-flo-pro
+  name: flo-pro
   namespace: flo-pro
 spec:
   selector:
-    app: dev-flo-pro
+    app: flo-pro
   ports:
-    - port: 81
+    - port: 80
       targetPort: 3000

@@ -1,12 +1,4 @@
 ---
-apiVersion: onepassword.com/v1
-kind: OnePasswordItem
-metadata:
-  name: dev-flo-pro-env
-  namespace: flo-pro
-spec:
-  itemPath: "vaults/k8s-home/items/flo-pro-env"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,7 +24,7 @@ spec:
             - containerPort: 3001
           envFrom:
             - secretRef:
-                name: dev-flo-pro-env
+                name: flo-pro-env
 ---
 apiVersion: v1
 kind: Service
@@ -43,5 +35,5 @@ spec:
   selector:
     app: dev-flo-pro
   ports:
-    - port: 80
+    - port: 81
       targetPort: 3001

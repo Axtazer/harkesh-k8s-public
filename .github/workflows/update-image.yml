@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          token: ${{ secrets.MIRROR_PAT }}
+          token: ${{ secrets.HARKESH_PAT }}
 
       - name: Install yq
         run: |
@@ -41,7 +41,7 @@ jobs:
 
       - name: Checkout shared update branch
         env:
-          PAT: ${{ secrets.MIRROR_PAT }}   # 👈 manquait ici
+          PAT: ${{ secrets.HARKESH_PAT }}
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
@@ -75,7 +75,7 @@ jobs:
 
       - name: Create or update PR
         env:
-          GH_TOKEN: ${{ secrets.MIRROR_PAT }}
+          GH_TOKEN: ${{ secrets.HARKESH_PAT }}
         run: |
           PR_EXISTS=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
           if [ -z "$PR_EXISTS" ]; then

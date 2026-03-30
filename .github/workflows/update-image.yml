@@ -1,0 +1,87 @@
+name: Update image digest
+
+on:
+  repository_dispatch:
+    types: [image-updated]
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install yq
+        run: |
+          wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+      - name: Resolve manifest path
+        id: resolve
+        env:
+          APP: ${{ github.event.client_payload.app }}
+        run: |
+          declare -A MAP=(
+            ["flo-pro"]="flo-pro/web_flo-pro.yaml"
+            ["dev-flo-pro"]="flo-pro/dev_flo-pro.yaml"
+            ["delivreou"]="etudes/delivreou/delivreou-full.yaml"
+            ["pagebleue"]="pagebleue/pagebleue.yaml"
+          )
+          FILE=${MAP[$APP]}
+          if [ -z "$FILE" ]; then
+            echo "Unknown app: $APP"
+            exit 1
+          fi
+          echo "file=$FILE" >> $GITHUB_OUTPUT
+
+      - name: Checkout shared update branch
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git fetch origin chore/update-images || true
+          git checkout chore/update-images 2>/dev/null || \
+            git checkout -b chore/update-images origin/chore/update-images 2>/dev/null || \
+            git checkout -b chore/update-images
+
+      - name: Patch digest
+        env:
+          FILE: ${{ steps.resolve.outputs.file }}
+          IMAGE: ${{ github.event.client_payload.image }}
+          DIGEST: ${{ github.event.client_payload.digest }}
+        run: |
+          yq -i '
+            (.. | select(tag == "!!str") | select(test("^'"$IMAGE"':.*@sha256:"))) |=
+            sub("@sha256:[a-f0-9]+", "@'"$DIGEST"'")
+          ' "$FILE"
+
+      - name: Commit & push
+        env:
+          APP: ${{ github.event.client_payload.app }}
+          DIGEST: ${{ github.event.client_payload.digest }}
+        run: |
+          git add "${{ steps.resolve.outputs.file }}"
+          git diff --staged --quiet && echo "No changes, skipping" && exit 0
+          SHORT=${DIGEST:7:12}
+          git commit -m "chore($APP): update digest to $SHORT"
+          git push origin chore/update-images
+
+      - name: Create or update PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_EXISTS=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
+          if [ -z "$PR_EXISTS" ]; then
+            gh pr create \
+              --base master \
+              --head chore/update-images \
+              --title "chore: update internal image digests" \
+              --body "Mise à jour automatique des digests — déclenché par \`${{ github.event.client_payload.app }}\`" \
+              --label "automerge"
+            PR_EXISTS=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
+          fi
+          gh pr merge $PR_EXISTS --auto --squash

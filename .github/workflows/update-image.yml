@@ -3,6 +3,14 @@ name: Update image digest
 on:
   repository_dispatch:
     types: [image-updated]
+  workflow_dispatch:
+    inputs:
+      app:
+        required: true
+      image:
+        required: true
+      digest:
+        required: true
 
 jobs:
   patch:
@@ -24,7 +32,7 @@ jobs:
       - name: Resolve manifest path
         id: resolve
         env:
-          APP: ${{ github.event.client_payload.app }}
+          APP: ${{ github.event.client_payload.app || inputs.app }}
         run: |
           declare -A MAP=(
             ["flo-pro"]="flo-pro/web_flo-pro.yaml"
@@ -54,8 +62,8 @@ jobs:
       - name: Patch digest
         env:
           FILE: ${{ steps.resolve.outputs.file }}
-          IMAGE: ${{ github.event.client_payload.image }}
-          DIGEST: ${{ github.event.client_payload.digest }}
+          IMAGE: ${{ github.event.client_payload.image || inputs.image }}
+          DIGEST: ${{ github.event.client_payload.digest || inputs.digest }}
         run: |
           yq -i '
             (.. | select(tag == "!!str") | select(test("^'"$IMAGE"':.*@sha256:"))) |=
@@ -64,8 +72,8 @@ jobs:
 
       - name: Commit & push
         env:
-          APP: ${{ github.event.client_payload.app }}
-          DIGEST: ${{ github.event.client_payload.digest }}
+          APP: ${{ github.event.client_payload.app || inputs.app }}
+          DIGEST: ${{ github.event.client_payload.digest || inputs.digest }}
         run: |
           git add "${{ steps.resolve.outputs.file }}"
           git diff --staged --quiet && echo "No changes, skipping" && exit 0
@@ -76,6 +84,7 @@ jobs:
       - name: Create or update PR
         env:
           GH_TOKEN: ${{ secrets.HARKESH_PAT }}
+          APP: ${{ github.event.client_payload.app || inputs.app }}
         run: |
           PR_EXISTS=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
           if [ -z "$PR_EXISTS" ]; then
@@ -83,7 +92,7 @@ jobs:
               --base master \
               --head chore/update-images \
               --title "chore: update internal image digests" \
-              --body "Mise à jour automatique des digests — déclenché par \`${{ github.event.client_payload.app }}\`" \
+              --body "Mise à jour automatique des digests — déclenché par \`${APP}\`" \
               --label "automerge"
             PR_EXISTS=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
           fi

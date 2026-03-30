@@ -3,6 +3,8 @@ name: Validate YAML
 on:
   pull_request:
     branches: [master]
+  push:
+    branches: [chore/update-images]  
 
 jobs:
   validate:

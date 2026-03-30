@@ -30,7 +30,7 @@ jobs:
             ["flo-pro"]="flo-pro/web_flo-pro.yaml"
             ["dev-flo-pro"]="flo-pro/dev_flo-pro.yaml"
             ["delivreou"]="etudes/delivreou/delivreou-full.yaml"
-            ["pagebleue"]="pagebleue/pagebleue.yaml"
+            ["pagebleue"]="etudes/PageBleue/pagebleue.yaml"
           )
           FILE=${MAP[$APP]}
           if [ -z "$FILE" ]; then

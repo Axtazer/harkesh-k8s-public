@@ -65,7 +65,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: pagebleue
-          image: ghcr.io/axtazer/pagebleue:latest@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          image: ghcr.io/axtazer/pagebleue:latest@sha256:6d0ad3a2875cdfbbb23bc3d9c6b8446580818c3b896e1b6e305a91dd3fecaced
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

@@ -18,7 +18,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -26,13 +25,15 @@ jobs:
 
       - name: Install yq
         run: |
-          wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          wget -q https://github.com/mikefarah/yq/releases/download/v4.44.6/yq_linux_amd64 -O /usr/local/bin/yq
           chmod +x /usr/local/bin/yq
 
-      - name: Resolve manifest path
-        id: resolve
+      - name: Resolve inputs
+        id: vars
         env:
           APP: ${{ github.event.client_payload.app || inputs.app }}
+          IMAGE: ${{ github.event.client_payload.image || inputs.image }}
+          DIGEST: ${{ github.event.client_payload.digest || inputs.digest }}
         run: |
           declare -A MAP=(
             ["flo-pro"]="flo-pro/web_flo-pro.yaml"
@@ -42,9 +43,12 @@ jobs:
           )
           FILE=${MAP[$APP]}
           if [ -z "$FILE" ]; then
-            echo "Unknown app: $APP"
+            echo "::error::Unknown app: $APP"
             exit 1
           fi
+          echo "app=$APP" >> $GITHUB_OUTPUT
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
           echo "file=$FILE" >> $GITHUB_OUTPUT
 
       - name: Checkout shared update branch
@@ -61,39 +65,51 @@ jobs:
 
       - name: Patch digest
         env:
-          FILE: ${{ steps.resolve.outputs.file }}
-          IMAGE: ${{ github.event.client_payload.image || inputs.image }}
-          DIGEST: ${{ github.event.client_payload.digest || inputs.digest }}
+          FILE: ${{ steps.vars.outputs.file }}
+          IMAGE: ${{ steps.vars.outputs.image }}
+          DIGEST: ${{ steps.vars.outputs.digest }}
         run: |
           yq -i '
-            (.. | select(tag == "!!str") | select(test("^'"$IMAGE"':.*@sha256:"))) |=
-            sub("@sha256:[a-f0-9]+", "@'"$DIGEST"'")
+            (.. | select(tag == "!!str") | select(test("^'"$IMAGE"'"))) |=
+            sub("(@sha256:[a-f0-9]+)?$", "@'"$DIGEST"'")
           ' "$FILE"
 
       - name: Commit & push
+        id: commit
         env:
-          APP: ${{ github.event.client_payload.app || inputs.app }}
-          DIGEST: ${{ github.event.client_payload.digest || inputs.digest }}
+          APP: ${{ steps.vars.outputs.app }}
+          DIGEST: ${{ steps.vars.outputs.digest }}
+          FILE: ${{ steps.vars.outputs.file }}
         run: |
-          git add "${{ steps.resolve.outputs.file }}"
-          git diff --staged --quiet && echo "No changes, skipping" && exit 0
+          git add "$FILE"
+          if git diff --staged --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes, skipping commit"
+            exit 0
+          fi
+          echo "changed=true" >> $GITHUB_OUTPUT
           SHORT=${DIGEST:7:12}
           git commit -m "chore($APP): update digest to $SHORT"
-          git push origin chore/update-images
+          for i in 1 2 3; do
+            git push origin chore/update-images && break
+            echo "Push failed, rebasing (attempt $i)..."
+            git pull --rebase origin chore/update-images
+          done
 
       - name: Create or update PR
+        if: steps.commit.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.HARKESH_PAT }}
-          APP: ${{ github.event.client_payload.app || inputs.app }}
+          APP: ${{ steps.vars.outputs.app }}
         run: |
-          PR_EXISTS=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
-          if [ -z "$PR_EXISTS" ]; then
+          PR=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
+          if [ -z "$PR" ]; then
             gh pr create \
               --base master \
               --head chore/update-images \
               --title "chore: update internal image digests" \
               --body "Mise à jour automatique des digests — déclenché par \`${APP}\`" \
               --label "automerge"
-            PR_EXISTS=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
+            PR=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
           fi
-          gh pr merge $PR_EXISTS --auto --squash
+          gh pr merge "$PR" --auto --squash

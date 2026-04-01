@@ -2,3 +2,4 @@
 secrets/
 pelican/caddy/
 pelican/logs/
+.claude/

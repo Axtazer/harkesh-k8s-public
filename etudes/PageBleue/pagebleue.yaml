@@ -1,0 +1,115 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: etudes
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: pagebleue-env
+  namespace: etudes
+spec:
+  itemPath: "vaults/k8s-home/items/pagebleue-env"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pagebleue-db-pv
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/data/pagebleue
+  claimRef:
+    namespace: etudes
+    name: pagebleue-db-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pagebleue-db-pvc
+  namespace: etudes
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  volumeName: pagebleue-db-pv
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pagebleue
+  namespace: etudes
+  labels:
+    app: pagebleue
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: pagebleue
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: pagebleue
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: pagebleue
+          image: ghcr.io/axtazer/pagebleue:latest@sha256:ad467e7ae29d94f34d58e6c621f4915a3dd37b8a09cd0c5548db18a295498a92
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: pagebleue-env
+          volumeMounts:
+            - name: db-data
+              mountPath: /app/data
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: pagebleue-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pagebleue
+  namespace: etudes
+spec:
+  selector:
+    app: pagebleue
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP

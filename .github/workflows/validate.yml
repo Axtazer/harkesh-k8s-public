@@ -3,6 +3,8 @@ name: Validate YAML
 on:
   pull_request:
     branches: [master]
+  push:
+    branches: [chore/update-images]  
 
 jobs:
   validate:
@@ -10,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ github.token }}
 
       # ── 1. Lint YAML syntax (tabs, indentation, trailing spaces) ─────────────
       - name: Install yamllint

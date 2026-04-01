@@ -1,0 +1,117 @@
+name: Update image digest
+
+on:
+  repository_dispatch:
+    types: [image-updated]
+  workflow_dispatch:
+    inputs:
+      app:
+        required: true
+      image:
+        required: true
+      digest:
+        required: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ secrets.HARKESH_PAT }}
+
+      - name: Install yq
+        run: |
+          wget -q https://github.com/mikefarah/yq/releases/download/v4.44.6/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+      - name: Resolve inputs
+        id: vars
+        env:
+          APP: ${{ github.event.client_payload.app || inputs.app }}
+          IMAGE: ${{ github.event.client_payload.image || inputs.image }}
+          DIGEST: ${{ github.event.client_payload.digest || inputs.digest }}
+        run: |
+          declare -A MAP=(
+            ["flo-pro"]="flo-pro/web_flo-pro.yaml"
+            ["dev-flo-pro"]="flo-pro/dev_flo-pro.yaml"
+            ["delivreou"]="etudes/delivreou/delivreou-full.yaml"
+            ["pagebleue"]="etudes/PageBleue/pagebleue.yaml"
+            ["altertrack"]="altertrack/altertrack.yaml"
+            ["dev-altertrack"]="altertrack/altertrack.yaml"
+          )
+          FILE=${MAP[$APP]}
+          if [ -z "$FILE" ]; then
+            echo "::error::Unknown app: $APP"
+            exit 1
+          fi
+          echo "app=$APP" >> $GITHUB_OUTPUT
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+          echo "file=$FILE" >> $GITHUB_OUTPUT
+
+      - name: Checkout shared update branch
+        env:
+          PAT: ${{ secrets.HARKESH_PAT }}
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git remote set-url origin "https://x-access-token:${PAT}@github.com/Axtazer/harkesh-k8s.git"
+          git fetch origin chore/update-images || true
+          git checkout chore/update-images 2>/dev/null || \
+            git checkout -b chore/update-images origin/chore/update-images 2>/dev/null || \
+            git checkout -b chore/update-images
+
+      - name: Patch digest
+        env:
+          FILE: ${{ steps.vars.outputs.file }}
+          IMAGE: ${{ steps.vars.outputs.image }}
+          DIGEST: ${{ steps.vars.outputs.digest }}
+        run: |
+          yq -i '
+            (.. | select(tag == "!!str") | select(test("^'"$IMAGE"'"))) |=
+            sub("(@sha256:[a-f0-9]+)?$", "@'"$DIGEST"'")
+          ' "$FILE"
+
+      - name: Commit & push
+        id: commit
+        env:
+          APP: ${{ steps.vars.outputs.app }}
+          DIGEST: ${{ steps.vars.outputs.digest }}
+          FILE: ${{ steps.vars.outputs.file }}
+        run: |
+          git add "$FILE"
+          if git diff --staged --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes, skipping commit"
+            exit 0
+          fi
+          echo "changed=true" >> $GITHUB_OUTPUT
+          SHORT=${DIGEST:7:12}
+          git commit -m "chore($APP): update digest to $SHORT"
+          for i in 1 2 3; do
+            git push origin chore/update-images && break
+            echo "Push failed, rebasing (attempt $i)..."
+            git pull --rebase origin chore/update-images
+          done
+
+      - name: Create or update PR
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HARKESH_PAT }}
+          APP: ${{ steps.vars.outputs.app }}
+        run: |
+          PR=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
+          if [ -z "$PR" ]; then
+            gh pr create \
+              --base master \
+              --head chore/update-images \
+              --title "chore: update internal image digests" \
+              --body "Mise à jour automatique des digests — déclenché par \`${APP}\`" \
+              --label "automerge"
+            PR=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
+          fi
+          gh pr merge "$PR" --auto --squash

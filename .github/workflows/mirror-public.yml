@@ -14,6 +14,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          token: ${{ github.token }}
 
       # Remplace le vrai domaine et supprime le dossier .github avant de pousser
       - name: Sanitize

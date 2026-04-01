@@ -24,7 +24,7 @@ spec:
             - containerPort: 3001
           envFrom:
             - secretRef:
-                name: altertrack-env
+                name: altertrack-secrets
           env:
             - name: NODE_ENV
               value: production

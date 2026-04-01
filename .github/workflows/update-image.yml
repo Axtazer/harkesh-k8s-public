@@ -40,6 +40,8 @@ jobs:
             ["dev-flo-pro"]="flo-pro/dev_flo-pro.yaml"
             ["delivreou"]="etudes/delivreou/delivreou-full.yaml"
             ["pagebleue"]="etudes/PageBleue/pagebleue.yaml"
+            ["altertrack"]="altertrack/altertrack.yaml"
+            ["dev-altertrack"]="altertrack/altertrack.yaml"
           )
           FILE=${MAP[$APP]}
           if [ -z "$FILE" ]; then

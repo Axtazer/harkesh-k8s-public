@@ -19,7 +19,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: backend
-          image: ghcr.io/axtazer/altertrack-backend:latest@sha256:7457c6431e45355b76c0d1b70eeacbc0b06d3a27e9fa406b8e6addc468cea26d
+          image: ghcr.io/axtazer/altertrack-backend:latest@sha256:dd517f809bf85a0ac3d1957b905ec42b86827a35be0e585a315e70e2e89f75fe
           ports:
             - containerPort: 3001
           envFrom:
@@ -82,7 +82,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: frontend
-          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:feda5bc1ab2cd50ceb52dd6f03940632822231819b49bfebad8bd87b66474c60
+          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:9d8069db33912a6ce74b35cac4fb45fa536ecae8c549927aeb8516641c23bb61
           ports:
             - containerPort: 80
           env:

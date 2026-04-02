@@ -117,7 +117,9 @@ jobs:
               --head chore/update-images \
               --title "chore: update internal image digests" \
               --body "Mise à jour automatique des digests — déclenché par \`${APP}\`" \
-              --label "automerge"
+              --label "automerge" || true
             PR=$(gh pr list --base master --head chore/update-images --json number --jq '.[0].number')
           fi
-          gh pr merge "$PR" --auto --squash
+          if [ -n "$PR" ]; then
+            gh pr merge "$PR" --auto --squash
+          fi

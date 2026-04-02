@@ -66,7 +66,9 @@ spec:
       initContainers:
         - name: init-db
           image: ghcr.io/axtazer/pagebleue:latest
-          command: ["sh", "-c", "[ -f /data/pagebleue.db ] || cp /app/data/pagebleue.db /data/pagebleue.db"]
+          command: ["sh", "-c", "[ -f /data/pagebleue.db ] || cp /app/data/pagebleue.db /data/pagebleue.db && chown 1001:1001 /data/pagebleue.db"]
+          securityContext:
+            runAsUser: 0
           volumeMounts:
             - name: db-data
               mountPath: /data

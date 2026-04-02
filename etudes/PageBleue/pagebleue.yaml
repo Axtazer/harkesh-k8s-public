@@ -50,7 +50,7 @@ metadata:
     app: pagebleue
 spec:
   replicas: 1
-  revisionHistoryLimit: 2
+  revisionHistoryLimit: 1
   selector:
     matchLabels:
       app: pagebleue
@@ -63,6 +63,13 @@ spec:
     spec:
       imagePullSecrets:
         - name: ghcr-secret
+      initContainers:
+        - name: init-db
+          image: ghcr.io/axtazer/pagebleue:latest
+          command: ["sh", "-c", "[ -f /data/pagebleue.db ] || cp /app/data/pagebleue.db /data/pagebleue.db"]
+          volumeMounts:
+            - name: db-data
+              mountPath: /data
       containers:
         - name: pagebleue
           image: ghcr.io/axtazer/pagebleue:latest@sha256:5cc88bf67135f351e0a7185c4e2f2c911950d63745979c26e9d57e8f24d999f5

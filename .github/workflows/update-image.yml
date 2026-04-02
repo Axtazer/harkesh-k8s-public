@@ -22,6 +22,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           token: ${{ secrets.HARKESH_PAT }}
+          fetch-depth: 0
 
       - name: Install yq
         run: |
@@ -60,10 +61,14 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
           git remote set-url origin "https://x-access-token:${PAT}@github.com/Axtazer/harkesh-k8s.git"
-          git fetch origin chore/update-images || true
-          git checkout chore/update-images 2>/dev/null || \
-            git checkout -b chore/update-images origin/chore/update-images 2>/dev/null || \
-            git checkout -b chore/update-images
+          git fetch origin master
+          git fetch origin chore/update-images 2>/dev/null || true
+          if git rev-parse origin/chore/update-images >/dev/null 2>&1; then
+            git checkout -b chore/update-images origin/chore/update-images
+            git rebase origin/master
+          else
+            git checkout -b chore/update-images origin/master
+          fi
 
       - name: Patch digest
         env:
@@ -94,8 +99,9 @@ jobs:
           git commit -m "chore($APP): update digest to $SHORT"
           for i in 1 2 3; do
             git push origin chore/update-images && break
-            echo "Push failed, rebasing (attempt $i)..."
-            git pull --rebase origin chore/update-images
+            echo "Push failed, rebasing (attempt $i/3)..."
+            git fetch origin chore/update-images
+            git rebase origin/chore/update-images
           done
 
       - name: Create or update PR

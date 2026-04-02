@@ -82,7 +82,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: frontend
-          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:9d8069db33912a6ce74b35cac4fb45fa536ecae8c549927aeb8516641c23bb61
+          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:4c57fa1e40cfaa1627b47de5468b0d7ecedfa6b60422fb8ba240d6354e73cf9b
           ports:
             - containerPort: 80
           env:

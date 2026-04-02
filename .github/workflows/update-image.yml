@@ -63,11 +63,15 @@ jobs:
           git remote set-url origin "https://x-access-token:${PAT}@github.com/Axtazer/harkesh-k8s.git"
           git fetch origin master
           git fetch origin chore/update-images 2>/dev/null || true
+          # Always start from master to avoid rebase conflicts from accumulated commits
+          git checkout -b chore/update-images origin/master
           if git rev-parse origin/chore/update-images >/dev/null 2>&1; then
-            git checkout -b chore/update-images origin/chore/update-images
-            git rebase origin/master
-          else
-            git checkout -b chore/update-images origin/master
+            # Overlay current branch state as a single squash commit (no conflict)
+            git checkout origin/chore/update-images -- .
+            git add -A
+            if ! git diff --staged --quiet; then
+              git commit -m "chore: restore pending digest updates"
+            fi
           fi
 
       - name: Patch digest
@@ -97,12 +101,20 @@ jobs:
           echo "changed=true" >> $GITHUB_OUTPUT
           SHORT=${DIGEST:7:12}
           git commit -m "chore($APP): update digest to $SHORT"
+          PUSHED=false
           for i in 1 2 3; do
-            git push origin chore/update-images && break
-            echo "Push failed, rebasing (attempt $i/3)..."
+            if git push --force-with-lease origin chore/update-images; then
+              PUSHED=true
+              break
+            fi
+            echo "Push failed, retrying (attempt $i/3)..."
             git fetch origin chore/update-images
-            git rebase origin/chore/update-images
+            git rebase -X theirs origin/chore/update-images
           done
+          if [ "$PUSHED" = "false" ]; then
+            echo "::error::Failed to push after 3 attempts"
+            exit 1
+          fi
 
       - name: Create or update PR
         if: steps.commit.outputs.changed == 'true'

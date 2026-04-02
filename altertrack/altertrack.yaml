@@ -85,6 +85,27 @@ spec:
           image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:ad423ac051704c91518c0456ad2245ea07b8d63fef51bc31a7f05d58c7fd6c6b
           ports:
             - containerPort: 80
+          env:
+            - name: VITE_SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: altertrack-secrets
+                  key: VITE_SUPABASE_URL
+            - name: VITE_SUPABASE_ANON_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: altertrack-secrets
+                  key: VITE_SUPABASE_ANON_KEY
+            - name: VITE_MAPBOX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: altertrack-secrets
+                  key: VITE_MAPBOX_TOKEN
+            - name: VITE_API_URL
+              valueFrom:
+                secretKeyRef:
+                  name: altertrack-secrets
+                  key: VITE_API_URL
           resources:
             requests:
               memory: "64Mi"

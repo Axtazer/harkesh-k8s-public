@@ -7,6 +7,7 @@ metadata:
   namespace: altertrack
 spec:
   replicas: 1
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: altertrack-backend
@@ -70,6 +71,7 @@ metadata:
   namespace: altertrack
 spec:
   replicas: 1
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: altertrack-frontend

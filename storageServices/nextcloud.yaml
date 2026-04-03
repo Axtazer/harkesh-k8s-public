@@ -91,6 +91,7 @@ metadata:
   name: mariadb
   namespace: nextcloud
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: mariadb
@@ -157,6 +158,7 @@ metadata:
   name: redis
   namespace: nextcloud
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: redis
@@ -189,6 +191,7 @@ metadata:
   name: nextcloud
   namespace: nextcloud
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: nextcloud

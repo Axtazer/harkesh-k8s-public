@@ -7,7 +7,6 @@ metadata:
   namespace: altertrack
 spec:
   replicas: 1
-  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: altertrack-backend
@@ -20,7 +19,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: backend
-          image: ghcr.io/axtazer/altertrack-backend:latest@sha256:83d1f95ec116240d352dc6bf13cf6c827a264bb758c8d0cc78feec0f45573d7f
+          image: ghcr.io/axtazer/altertrack-backend:latest@sha256:a8d233b8c560a2ed3467e8408b81b3d46bc574c24b043278acc0824de1891352
           ports:
             - containerPort: 3001
           envFrom:
@@ -71,7 +70,6 @@ metadata:
   namespace: altertrack
 spec:
   replicas: 1
-  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: altertrack-frontend
@@ -84,7 +82,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: frontend
-          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:e5fbe49c754413967554045dee897f865365be3b00d0e333c0cc05138bd6bfa0
+          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:090f645b02d179536a433df6142613ee360140f843cf4bdadf33fba842d84ed8
           ports:
             - containerPort: 80
           env:

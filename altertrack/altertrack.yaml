@@ -19,7 +19,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: backend
-          image: ghcr.io/axtazer/altertrack-backend:latest@sha256:d90755a96ac2df159f503981a35f0f319c9b97861b8656122d9778ee47e16ac7
+          image: ghcr.io/axtazer/altertrack-backend:latest@sha256:485f8a60a5808d45e0e710596e215167e60d9e36e748276118b3c3d6619f7f78
           ports:
             - containerPort: 3001
           envFrom:
@@ -30,11 +30,6 @@ spec:
               value: production
             - name: PORT
               value: "3001"
-            - name: MAPBOX_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: altertrack-secrets
-                  key: VITE_MAPBOX_TOKEN
           resources:
             requests:
               memory: "256Mi"
@@ -87,7 +82,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: frontend
-          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:178d17f27b5327a947cf07ea975210de7119fd9a3760b9cc5244d57542324a20
+          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:22a0e8ef5084f9424378820a2017e4d43b5788effbee4b44a9ca9cc395df889f
           ports:
             - containerPort: 80
           env:

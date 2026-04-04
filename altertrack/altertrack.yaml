@@ -19,7 +19,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: backend
-          image: ghcr.io/axtazer/altertrack-backend:latest@sha256:eabd66909027782b9bf9c99f87c33e36d531e18baaa66592e61bca41ae2be83e
+          image: ghcr.io/axtazer/altertrack-backend:latest@sha256:4143a3148a57740b2bd539e6aabb97e29b1643ccc9aef933650ed35694aaf508
           ports:
             - containerPort: 3001
           envFrom:
@@ -82,7 +82,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: frontend
-          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:e188004d04d63b433f8780310d9a21566f7b3f6e21f79bfcb3f601759fb6f594
+          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:1c5c1094072b48a8599954941707fada8555040b4cddd5d4122179878f3a0a5c
           ports:
             - containerPort: 80
           env:
@@ -101,11 +101,6 @@ spec:
                 secretKeyRef:
                   name: altertrack-secrets
                   key: VITE_API_URL
-            - name: VITE_TURNSTILE_SITE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: altertrack-secrets
-                  key: VITE_TURNSTILE_SITE_KEY
           resources:
             requests:
               memory: "64Mi"

@@ -96,11 +96,6 @@ spec:
                 secretKeyRef:
                   name: altertrack-secrets
                   key: VITE_SUPABASE_ANON_KEY
-            - name: VITE_MAPBOX_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: altertrack-secrets
-                  key: VITE_MAPBOX_TOKEN
             - name: VITE_API_URL
               valueFrom:
                 secretKeyRef:

@@ -19,7 +19,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: backend
-          image: ghcr.io/axtazer/altertrack-backend:latest@sha256:455fd05ba796785c6e175938960291b29a87359ff1cd55e46f2ddd0ea0bf2aff
+          image: ghcr.io/axtazer/altertrack-backend:latest@sha256:f7007c3c4f98949d0be23856dfa75a66d1e9a7a24b29f178e68c472a1ab98477
           ports:
             - containerPort: 3001
           envFrom:
@@ -82,7 +82,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: frontend
-          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:2e5ae856914ae5326c329c0ea5829cc55226f86eae359bac227963d24f2ea5ef
+          image: ghcr.io/axtazer/altertrack-frontend:latest@sha256:bf6dd2c19f0cef693387c0dfb7572774c4bfcba619b25fae793510e5a4e8ae5c
           ports:
             - containerPort: 80
           env:
@@ -96,6 +96,11 @@ spec:
                 secretKeyRef:
                   name: altertrack-secrets
                   key: VITE_SUPABASE_ANON_KEY
+            - name: VITE_MAPBOX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: altertrack-secrets
+                  key: VITE_MAPBOX_TOKEN
             - name: VITE_API_URL
               valueFrom:
                 secretKeyRef:

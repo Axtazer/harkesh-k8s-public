@@ -74,7 +74,7 @@ spec:
               mountPath: /data
       containers:
         - name: pagebleue
-          image: ghcr.io/axtazer/pagebleue:latest@sha256:5cc88bf67135f351e0a7185c4e2f2c911950d63745979c26e9d57e8f24d999f5
+          image: ghcr.io/axtazer/pagebleue:2670aa0@sha256:b9b65d596a43468f046fa63728e0220382271da59653ca5f148ca6652f3b2f24
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

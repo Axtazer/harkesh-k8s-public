@@ -227,13 +227,13 @@ spec:
             - name: TZ
               value: Europe/Paris
             - name: OVERWRITEHOST
-              value: nas.castaldo.fr
+              value: nas.mydomain.fr
             - name: OVERWRITEPROTOCOL
               value: https
             - name: OVERWRITECLIURL
-              value: https://nas.castaldo.fr
+              value: https://nas.mydomain.fr
             - name: NEXTCLOUD_TRUSTED_DOMAINS
-              value: "nas.castaldo.fr harkesh.lan"
+              value: "nas.mydomain.fr harkesh.lan"
             - name: REDIS_HOST
               value: redis.nextcloud.svc.cluster.local
             - name: REDIS_HOST_PORT
@@ -276,7 +276,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: nas.castaldo.fr
+    - host: nas.mydomain.fr
       http:
         paths:
           - path: /

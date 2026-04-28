@@ -91,7 +91,7 @@ CLI et connexion repo :
 ```bash
 curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
 chmod +x /usr/local/bin/argocd
-argocd login argocd.castaldo.fr --username admin --grpc-web
+argocd login argocd.mydomain.fr --username admin --grpc-web
 argocd repo add git@github.com:Axtazer/harkesh-k8s.git --ssh-private-key-path ~/.ssh/id_ed25519 --grpc-web
 ```
 
@@ -161,14 +161,14 @@ Tous les domaines passent par le **Cloudflare Tunnel** — aucun port exposé su
 
 | Domaine                  | Service         |
 |--------------------------|-----------------|
-| `castaldo.fr`            | Flo-pro         |
-| `dev-pro.castaldo.fr`    | Dev Flo-pro     |
-| `argocd.castaldo.fr`     | ArgoCD          |
-| `grafana.castaldo.fr`    | Grafana         |
-| `panel.castaldo.fr`      | Pelican Panel   |
-| `wings.castaldo.fr`      | Wings           |
-| `nas.castaldo.fr`        | Nextcloud       |
-| `delivreou.castaldo.fr`  | Delivre Où?     |
+| `mydomain.fr`            | Flo-pro         |
+| `dev-pro.mydomain.fr`    | Dev Flo-pro     |
+| `argocd.mydomain.fr`     | ArgoCD          |
+| `grafana.mydomain.fr`    | Grafana         |
+| `panel.mydomain.fr`      | Pelican Panel   |
+| `wings.mydomain.fr`      | Wings           |
+| `nas.mydomain.fr`        | Nextcloud       |
+| `delivreou.mydomain.fr`  | Delivre Où?     |
 
 
 ## Renovate

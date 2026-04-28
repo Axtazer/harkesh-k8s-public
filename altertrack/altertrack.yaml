@@ -137,7 +137,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
 spec:
   rules:
-    - host: altertrack.castaldo.fr
+    - host: altertrack.mydomain.fr
       http:
         paths:
           - path: /api

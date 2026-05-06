@@ -140,6 +140,8 @@ spec:
             - secretRef:
                 name: snapp-secrets
           env:
+            - name: DATABASE_PROVIDER
+              value: postgres
             - name: TZ
               value: Europe/Paris
           readinessProbe:

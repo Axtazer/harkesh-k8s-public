@@ -61,6 +61,15 @@ spec:
       labels:
         app: shlink
     spec:
+      initContainers:
+        - name: init-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 82:82 /etc/shlink/data"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: shlink-data
+              mountPath: /etc/shlink/data
       containers:
         - name: shlink
           image: ghcr.io/shlinkio/shlink:stable

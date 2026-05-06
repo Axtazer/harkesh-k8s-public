@@ -55,9 +55,13 @@ metadata:
   name: postgres
   namespace: snapp
 spec:
+  replicas: 1
+  revisionHistoryLimit: 1
   selector:
     matchLabels:
       app: postgres
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:

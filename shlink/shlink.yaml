@@ -154,6 +154,8 @@ spec:
               value: postgres
             - name: DB_HOST
               value: postgres.shlink.svc.cluster.local
+            - name: CORS_ALLOW_ORIGIN
+              value: https://shlink.axtazer.me
             - name: SKIP_INITIAL_GEOLITE_DOWNLOAD
               value: "true"
             - name: SHELL_VERBOSITY

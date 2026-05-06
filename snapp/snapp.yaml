@@ -86,7 +86,7 @@ spec:
               value: Europe/Paris
           volumeMounts:
             - name: db-data
-              mountPath: /var/lib/postgresql/data
+              mountPath: /var/lib/postgresql
           resources:
             requests:
               memory: "128Mi"

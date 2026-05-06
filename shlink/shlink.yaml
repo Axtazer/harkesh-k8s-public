@@ -156,6 +156,8 @@ spec:
               value: postgres.shlink.svc.cluster.local
             - name: SKIP_INITIAL_GEOLITE_DOWNLOAD
               value: "true"
+            - name: SHELL_VERBOSITY
+              value: "3"
             - name: TZ
               value: Europe/Paris
           readinessProbe:

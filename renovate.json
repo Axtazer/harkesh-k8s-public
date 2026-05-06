@@ -20,7 +20,8 @@
       "/storageServices/.+\\.yaml$/",
       "/wings/.+\\.yaml$/",
       "/etudes/.+\\.yaml$/",
-      "/shlink/.+\\.yaml$/"
+      "/shlink/.+\\.yaml$/",
+      "/axtazer-me/.+\\.yaml$/"
     ]
   },
   "customManagers": [
@@ -99,6 +100,23 @@
       "automerge": false,
       "reviewers": [
         "Axtazer"
+      ]
+    },
+    {
+      "description": "axtazer-me — digest automerge (image interne)",
+      "matchPackageNames": [
+        "ghcr.io/axtazer/axtazer-me"
+      ],
+      "groupName": "axtazer-me",
+      "minimumReleaseAge": "0 days",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "labels": [
+        "axtazer-me",
+        "automerge"
       ]
     },
     {

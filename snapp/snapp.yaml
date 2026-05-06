@@ -65,7 +65,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:17-alpine
+          image: postgres:17-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
           env:
             - name: POSTGRES_USER
               valueFrom:
@@ -133,7 +133,7 @@ spec:
     spec:
       containers:
         - name: snapp
-          image: uraniadev/snapp:latest
+          image: uraniadev/snapp:latest@sha256:6d780eee5595e8d3e435b8bd898268bbc5645e62ef09bc2e397b413059c2fbcb
           ports:
             - containerPort: 3000
           envFrom:

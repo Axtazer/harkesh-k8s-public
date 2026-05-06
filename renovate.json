@@ -224,6 +224,19 @@
       ]
     },
     {
+      "description": "Snapp postgres — bloquer major (migrations BDD irréversibles)",
+      "matchPackageNames": [
+        "postgres"
+      ],
+      "matchFileNames": [
+        "snapp/*.yaml"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Snapp — digest/patch/minor automerge, major manuel",
       "matchPackageNames": [
         "uraniadev/snapp"

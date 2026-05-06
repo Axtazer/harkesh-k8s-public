@@ -19,7 +19,8 @@
       "/pelican/.+\\.yaml$/",
       "/storageServices/.+\\.yaml$/",
       "/wings/.+\\.yaml$/",
-      "/etudes/.+\\.yaml$/"
+      "/etudes/.+\\.yaml$/",
+      "/snapp/.+\\.yaml$/"
     ]
   },
   "customManagers": [
@@ -219,6 +220,24 @@
       ],
       "labels": [
         "ci",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Snapp — digest/patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "uraniadev/snapp"
+      ],
+      "groupName": "snapp",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "snapp",
         "automerge"
       ]
     },

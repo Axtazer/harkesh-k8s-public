@@ -1,0 +1,220 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shlink
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: shlink-secrets
+  namespace: shlink
+spec:
+  itemPath: "vaults/k8s-home/items/shlink"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: shlink-data-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/data/shlink
+  claimRef:
+    namespace: shlink
+    name: shlink-data-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shlink-data-pvc
+  namespace: shlink
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: shlink-data-pv
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shlink
+  namespace: shlink
+  labels:
+    app: shlink
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: shlink
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: shlink
+    spec:
+      containers:
+        - name: shlink
+          image: ghcr.io/shlinkio/shlink:stable
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: shlink-secrets
+          env:
+            - name: DEFAULT_DOMAIN
+              value: s.castaldo.fr
+            - name: IS_HTTPS_ENABLED
+              value: "true"
+            - name: DB_DRIVER
+              value: sqlite
+            - name: TZ
+              value: Europe/Paris
+          volumeMounts:
+            - name: shlink-data
+              mountPath: /etc/shlink/data
+          readinessProbe:
+            httpGet:
+              path: /rest/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /rest/health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: shlink-data
+          persistentVolumeClaim:
+            claimName: shlink-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shlink
+  namespace: shlink
+spec:
+  selector:
+    app: shlink
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shlink-web
+  namespace: shlink
+  labels:
+    app: shlink-web
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: shlink-web
+  template:
+    metadata:
+      labels:
+        app: shlink-web
+    spec:
+      containers:
+        - name: shlink-web
+          image: ghcr.io/shlinkio/shlink-web-client:stable
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SHLINK_SERVER_URL
+              value: https://s.castaldo.fr
+            - name: SHLINK_SERVER_NAME
+              value: Harkesh
+            - name: SHLINK_SERVER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: shlink-secrets
+                  key: INITIAL_API_KEY
+            - name: TZ
+              value: Europe/Paris
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "64Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shlink-web
+  namespace: shlink
+spec:
+  selector:
+    app: shlink-web
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shlink
+  namespace: shlink
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: s.castaldo.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shlink
+                port:
+                  number: 80
+    - host: shlink.castaldo.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shlink-web
+                port:
+                  number: 80

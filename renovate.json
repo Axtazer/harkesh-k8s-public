@@ -20,7 +20,7 @@
       "/storageServices/.+\\.yaml$/",
       "/wings/.+\\.yaml$/",
       "/etudes/.+\\.yaml$/",
-      "/snapp/.+\\.yaml$/"
+      "/shlink/.+\\.yaml$/"
     ]
   },
   "customManagers": [
@@ -224,24 +224,12 @@
       ]
     },
     {
-      "description": "Snapp postgres — bloquer major (migrations BDD irréversibles)",
+      "description": "Shlink — digest/patch/minor automerge, major manuel",
       "matchPackageNames": [
-        "postgres"
+        "ghcr.io/shlinkio/shlink",
+        "ghcr.io/shlinkio/shlink-web-client"
       ],
-      "matchFileNames": [
-        "snapp/*.yaml"
-      ],
-      "matchUpdateTypes": [
-        "major"
-      ],
-      "enabled": false
-    },
-    {
-      "description": "Snapp — digest/patch/minor automerge, major manuel",
-      "matchPackageNames": [
-        "uraniadev/snapp"
-      ],
-      "groupName": "snapp",
+      "groupName": "shlink",
       "automerge": true,
       "automergeType": "pr",
       "matchUpdateTypes": [
@@ -250,7 +238,7 @@
         "minor"
       ],
       "labels": [
-        "snapp",
+        "shlink",
         "automerge"
       ]
     },

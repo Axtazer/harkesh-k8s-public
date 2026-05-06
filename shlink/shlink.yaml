@@ -69,7 +69,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:17-alpine
+          image: postgres:17-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
           env:
             - name: POSTGRES_USER
               valueFrom:
@@ -137,7 +137,7 @@ spec:
     spec:
       containers:
         - name: shlink
-          image: ghcr.io/shlinkio/shlink:stable
+          image: ghcr.io/shlinkio/shlink:stable@sha256:231065c2564f242bb68a00b06ae558744ef7ab25d2a253b0def15291cce2cc72
           ports:
             - containerPort: 8080
           envFrom:
@@ -215,7 +215,7 @@ spec:
     spec:
       containers:
         - name: shlink-web
-          image: ghcr.io/shlinkio/shlink-web-client:stable
+          image: ghcr.io/shlinkio/shlink-web-client:stable@sha256:80b4d00c445f61e38164a4f13bea4f915b0bdc051e74705fe21ffa92a3d6fed5
           ports:
             - containerPort: 8080
           env:

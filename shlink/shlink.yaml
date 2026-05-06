@@ -147,7 +147,7 @@ spec:
                 name: shlink-db-secret
           env:
             - name: DEFAULT_DOMAIN
-              value: s.castaldo.fr
+              value: go.axtazer.me
             - name: IS_HTTPS_ENABLED
               value: "true"
             - name: DB_DRIVER
@@ -156,6 +156,8 @@ spec:
               value: postgres.shlink.svc.cluster.local
             - name: SKIP_INITIAL_GEOLITE_DOWNLOAD
               value: "true"
+            - name: SHELL_VERBOSITY
+              value: "3"
             - name: TZ
               value: Europe/Paris
           readinessProbe:
@@ -220,7 +222,7 @@ spec:
             - containerPort: 8080
           env:
             - name: SHLINK_SERVER_URL
-              value: https://s.castaldo.fr
+              value: https://go.axtazer.me
             - name: SHLINK_SERVER_NAME
               value: Harkesh
             - name: SHLINK_SERVER_API_KEY
@@ -273,7 +275,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: s.castaldo.fr
+    - host: go.axtazer.me
       http:
         paths:
           - path: /
@@ -283,7 +285,7 @@ spec:
                 name: shlink
                 port:
                   number: 80
-    - host: shlink.castaldo.fr
+    - host: shlink.axtazer.me
       http:
         paths:
           - path: /

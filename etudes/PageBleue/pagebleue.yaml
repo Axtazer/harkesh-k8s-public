@@ -65,7 +65,7 @@ spec:
         - name: ghcr-secret
       initContainers:
         - name: init-db
-          image: ghcr.io/axtazer/pagebleue:bef17e6@sha256:3902c62a6ed9f0eed071ec40d9834cdaa1c8da4b74153bce0f9033d24498667f
+          image: ghcr.io/axtazer/pagebleue:965117c@sha256:6d0a7827f65684720a5d971fee45362672534ebde87d296e165275c02ff0e173
           command: ["sh", "-c", "[ -f /data/pagebleue.db ] || cp /app/data/pagebleue.db /data/pagebleue.db; chown -R 1001:1001 /data"]
           securityContext:
             runAsUser: 0
@@ -74,7 +74,7 @@ spec:
               mountPath: /data
       containers:
         - name: pagebleue
-          image: ghcr.io/axtazer/pagebleue:bef17e6@sha256:3902c62a6ed9f0eed071ec40d9834cdaa1c8da4b74153bce0f9033d24498667f
+          image: ghcr.io/axtazer/pagebleue:965117c@sha256:6d0a7827f65684720a5d971fee45362672534ebde87d296e165275c02ff0e173
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

@@ -86,7 +86,7 @@ spec:
               value: Europe/Paris
           volumeMounts:
             - name: db-data
-              mountPath: /var/lib/postgresql/data
+              mountPath: /var/lib/postgresql
           resources:
             requests:
               memory: "128Mi"
@@ -140,6 +140,8 @@ spec:
             - secretRef:
                 name: snapp-secrets
           env:
+            - name: DATABASE_PROVIDER
+              value: postgres
             - name: TZ
               value: Europe/Paris
           readinessProbe:

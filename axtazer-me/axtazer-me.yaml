@@ -12,36 +12,6 @@ metadata:
 spec:
   itemPath: "vaults/k8s-home/items/axtazer-me"
 ---
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: axtazer-me
-  namespace: axtazer-me
-spec:
-  podSelector:
-    matchLabels:
-      app: axtazer-me
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: ingress-nginx
-      ports:
-        - protocol: TCP
-          port: 8080
-  egress:
-    - ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
-    - ports:
-        - protocol: TCP
-          port: 443
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -66,7 +36,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: axtazer-me
-          image: ghcr.io/axtazer/axtazer-me:d123ee12d9c491041468ad4dfc81e45ec6bf1da5
+          image: ghcr.io/axtazer/axtazer-me:d9fa3e91a4feebbaac12a874f634a8bb7650df64
           ports:
             - containerPort: 8080
           env:

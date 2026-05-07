@@ -36,7 +36,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: axtazer-me
-          image: ghcr.io/axtazer/axtazer-me:b3bb2a5fa04a4a810bdf85ae4dfc6cd678d8a8c8
+          image: ghcr.io/axtazer/axtazer-me:ae708e8cad0867e76804c47e582137d5686a962c
           ports:
             - containerPort: 8080
           env:

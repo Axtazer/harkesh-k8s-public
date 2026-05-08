@@ -26,7 +26,7 @@ spec:
         fsGroupChangePolicy: Always
       containers:
         - name: panel
-          image: ghcr.io/pelican-dev/panel:v1.0.0-beta34
+          image: ghcr.io/pelican-dev/panel:v1.0.0-beta34@sha256:653ac7d65fd9e85eec90bfa718228c0811735ff4a809ebfcf9b70327c506c3db
           env:
             - name: APP_URL
               value: "https://panel.castaldo.fr"

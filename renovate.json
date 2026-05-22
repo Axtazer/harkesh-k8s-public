@@ -20,7 +20,8 @@
       "/storageServices/.+\\.yaml$/",
       "/wings/.+\\.yaml$/",
       "/etudes/.+\\.yaml$/",
-      "/shlink/.+\\.yaml$/"
+      "/shlink/.+\\.yaml$/",
+      "/jellyfin/.+\\.yaml$/"
     ]
   },
   "customManagers": [
@@ -247,6 +248,41 @@
       "labels": [
         "shlink",
         "automerge"
+      ]
+    },
+    {
+      "description": "Jellyfin — digest/patch automerge, minor/major manuel (migrations DB possibles sur minor)",
+      "matchPackageNames": [
+        "jellyfin/jellyfin"
+      ],
+      "groupName": "jellyfin",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch"
+      ],
+      "labels": [
+        "media",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Jellyfin minor/major — manuel (risk de migration DB)",
+      "matchPackageNames": [
+        "jellyfin/jellyfin"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "media",
+        "manual-review"
       ]
     },
     {

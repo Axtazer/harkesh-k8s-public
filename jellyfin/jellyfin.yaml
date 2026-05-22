@@ -36,7 +36,7 @@ spec:
             - name: NVIDIA_VISIBLE_DEVICES
               value: all
             - name: NVIDIA_DRIVER_CAPABILITIES
-              value: compute,video,utility
+              value: all
           resources:
             requests:
               cpu: 250m
@@ -51,6 +51,13 @@ spec:
             - name: media
               mountPath: /media
               readOnly: true
+            # Montages NVIDIA obligatoires
+            - name: dev-nvidia0
+              mountPath: /dev/nvidia0
+            - name: dev-nvidiactl
+              mountPath: /dev/nvidiactl
+            - name: dev-nvidia-uvm
+              mountPath: /dev/nvidia-uvm
           livenessProbe:
             httpGet:
               path: /health
@@ -72,6 +79,16 @@ spec:
           hostPath:
             path: /mnt/hdd/media/files
             type: Directory
+        # Volumes NVIDIA
+        - name: dev-nvidia0
+          hostPath:
+            path: /dev/nvidia0
+        - name: dev-nvidiactl
+          hostPath:
+            path: /dev/nvidiactl
+        - name: dev-nvidia-uvm
+          hostPath:
+            path: /dev/nvidia-uvm
 ---
 apiVersion: v1
 kind: Service

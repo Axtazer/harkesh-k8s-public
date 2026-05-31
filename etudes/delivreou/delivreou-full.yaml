@@ -89,7 +89,7 @@ spec:
     spec:
       containers:
         - name: mariadb
-          image: mariadb:11@sha256:78a5047d3ba33975f183f183c2464cc7f1eab13ec8667e57cc9a5821d6da7577
+          image: mariadb:11@sha256:78185355dd49b54dd6909072531ce8d7e06aa0eccd7aa5b23c93ebb7e34c5aaa
           ports:
             - containerPort: 3306
           env:
@@ -184,7 +184,7 @@ spec:
       initContainers:
         # Attend que MariaDB accepte des connexions
         - name: wait-for-db
-          image: busybox:1.37@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+          image: busybox:1.38@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
           command:
             - sh
             - -c

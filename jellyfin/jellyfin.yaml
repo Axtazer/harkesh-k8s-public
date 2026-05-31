@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: jellyfin
-          image: jellyfin/jellyfin:10.11.9
+          image: jellyfin/jellyfin:10.11.10@sha256:f66273e014b307e4ac46778845ebc1e9ee24b2e57c1fc17d5ec5ac3015649bfa
           ports:
             - containerPort: 8096
               name: http
@@ -51,6 +51,13 @@ spec:
             - name: media
               mountPath: /media
               readOnly: true
+            # Montages NVIDIA obligatoires
+            - name: dev-nvidia0
+              mountPath: /dev/nvidia0
+            - name: dev-nvidiactl
+              mountPath: /dev/nvidiactl
+            - name: dev-nvidia-uvm
+              mountPath: /dev/nvidia-uvm
           livenessProbe:
             httpGet:
               path: /health
@@ -72,6 +79,16 @@ spec:
           hostPath:
             path: /mnt/hdd/media/files
             type: Directory
+        # Volumes NVIDIA
+        - name: dev-nvidia0
+          hostPath:
+            path: /dev/nvidia0
+        - name: dev-nvidiactl
+          hostPath:
+            path: /dev/nvidiactl
+        - name: dev-nvidia-uvm
+          hostPath:
+            path: /dev/nvidia-uvm
 ---
 apiVersion: v1
 kind: Service

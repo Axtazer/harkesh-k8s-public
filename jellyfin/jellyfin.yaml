@@ -36,7 +36,7 @@ spec:
             - name: NVIDIA_VISIBLE_DEVICES
               value: all
             - name: NVIDIA_DRIVER_CAPABILITIES
-              value: compute,video,utility
+              value: compute,video,utility  # video = NVENC/NVDEC hardware transcoding
           resources:
             requests:
               cpu: 250m
@@ -44,7 +44,7 @@ spec:
             limits:
               cpu: "2"
               memory: 2Gi
-              nvidia.com/gpu: "1"
+              nvidia.com/gpu: "1"  # 1 slice sur 4 (time-slicing géré par nvidia/nvidia-device-plugin.yaml)
           volumeMounts:
             - name: config
               mountPath: /config

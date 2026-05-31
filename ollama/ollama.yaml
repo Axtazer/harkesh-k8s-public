@@ -27,6 +27,13 @@ spec:
       containers:
         - name: ollama
           image: ollama/ollama:0.9.0
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
           ports:
             - containerPort: 11434
               name: http
@@ -83,3 +90,36 @@ spec:
     - name: http
       port: 11434
       targetPort: 11434
+---
+# Deny all ingress by default — seuls les pods labelisés ollama-client: "true"
+# peuvent appeler l'API. Ajouter ce label au pod appelant pour autoriser l'accès.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ollama-default-deny
+  namespace: ollama
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ollama-allow-clients
+  namespace: ollama
+spec:
+  podSelector:
+    matchLabels:
+      app: ollama
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              ollama-client: "true"
+      ports:
+        - port: 11434
+          protocol: TCP

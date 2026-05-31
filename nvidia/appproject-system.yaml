@@ -1,0 +1,30 @@
+---
+# AppProject dédié aux composants système déployés dans kube-system.
+# Restreint les sources, destinations et kinds autorisés — évite d'utiliser
+# le projet "default" pour des workloads à privilèges élevés.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: system
+  namespace: argocd
+spec:
+  description: Composants système privilégiés (kube-system)
+  sourceRepos:
+    - https://nvidia.github.io/k8s-device-plugin
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: kube-system
+  # Ressources cluster-scoped autorisées (RBAC du device plugin)
+  clusterResourceWhitelist:
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+  # Ressources namespaced autorisées dans kube-system
+  namespaceResourceWhitelist:
+    - group: apps
+      kind: DaemonSet
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: ServiceAccount

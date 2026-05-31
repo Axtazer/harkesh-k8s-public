@@ -17,6 +17,7 @@ spec:
       values: |
         nodeSelector:
           kubernetes.io/os: linux
+        affinity: {}
         config:
           name: nvidia-device-plugin-config
           create: true

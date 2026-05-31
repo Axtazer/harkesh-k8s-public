@@ -15,6 +15,8 @@ spec:
     targetRevision: 0.17.1
     helm:
       values: |
+        nodeSelector:
+          kubernetes.io/os: linux
         config:
           name: nvidia-device-plugin-config
           create: true

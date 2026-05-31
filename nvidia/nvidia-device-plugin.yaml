@@ -25,8 +25,10 @@ spec:
             version: v1
             sharing:
               timeSlicing:
-                replicas: 4
                 failRequestsGreaterThanOne: false
+                resources:
+                  - name: nvidia.com/gpu
+                    replicas: 4
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

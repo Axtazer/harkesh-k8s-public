@@ -105,7 +105,7 @@ spec:
     spec:
       containers:
         - name: mariadb
-          image: mariadb:11@sha256:78a5047d3ba33975f183f183c2464cc7f1eab13ec8667e57cc9a5821d6da7577
+          image: mariadb:11@sha256:be1ef4fe5f14589325c08a41c76334097ce66c86264b75e1d28342c742782a61
           args:
             - --transaction-isolation=READ-COMMITTED
             - --innodb_read_only_compressed=OFF
@@ -180,7 +180,7 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:alpine@sha256:69f2c586c8a7e9cce4ae1ee9bbaf60bc4bb5f4bb3880e4ed022b1fd758a7cab9
+          image: redis:alpine@sha256:09160599abd229764c0fb44cb6be640294e1d360a54b19985ab4843dcf2d90f1
           ports:
             - containerPort: 6379
           resources:
@@ -223,7 +223,7 @@ spec:
     spec:
       containers:
         - name: nextcloud
-          image: nextcloud:apache@sha256:76f04e434a82572dbfee7ad6dca313229eade89ee538fccd2bf6396f4440d48b
+          image: nextcloud:apache@sha256:caa40b8beaf0057ac213d8dfc515c36ce64f7a8f0825b6a287e6f7cf2f4a095d
           env:
             - name: MYSQL_DATABASE
               valueFrom:
@@ -346,7 +346,7 @@ spec:
         spec:
           containers:
             - name: nextcloud-cron
-              image: nextcloud:apache@sha256:76f04e434a82572dbfee7ad6dca313229eade89ee538fccd2bf6396f4440d48b
+              image: nextcloud:apache@sha256:caa40b8beaf0057ac213d8dfc515c36ce64f7a8f0825b6a287e6f7cf2f4a095d
               command:
                 - su
                 - -s

@@ -1,0 +1,80 @@
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: warframe-postgres-secrets
+  namespace: bots
+spec:
+  itemPath: "vaults/k8s-home/items/warframe-postgres"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: warframe-postgres
+  namespace: bots
+  labels:
+    app: warframe-postgres
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: warframe-postgres
+  template:
+    metadata:
+      labels:
+        app: warframe-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: warframe-postgres-secrets
+          env:
+            - name: TZ
+              value: Europe/Paris
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-q"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-q"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: data
+          hostPath:
+            path: /srv/warframe-bot/postgres
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: warframe-postgres
+  namespace: bots
+spec:
+  type: ClusterIP
+  selector:
+    app: warframe-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

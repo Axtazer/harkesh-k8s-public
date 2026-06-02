@@ -103,6 +103,23 @@
       ]
     },
     {
+      "description": "warframe-bot — digest automerge (image interne, pas de migration)",
+      "matchPackageNames": [
+        "ghcr.io/axtazer/warframe-bot"
+      ],
+      "groupName": "warframe-bot",
+      "minimumReleaseAge": "0 days",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "labels": [
+        "bot",
+        "automerge"
+      ]
+    },
+    {
       "description": "Axtazia — digest automerge (image interne, pas de migration)",
       "matchPackageNames": [
         "ghcr.io/axtazer/axtazia"

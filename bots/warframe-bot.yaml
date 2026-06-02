@@ -1,0 +1,61 @@
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: warframe-bot-secrets
+  namespace: bots
+spec:
+  itemPath: "vaults/k8s-home/items/warframe-bot"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: warframe-bot
+  namespace: bots
+  labels:
+    app: warframe-bot
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: warframe-bot
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: warframe-bot
+        ollama-client: "true"
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: bot
+          image: ghcr.io/axtazer/warframe-bot:latest
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef:
+                name: warframe-bot-secrets
+          env:
+            - name: OLLAMA_HOST
+              value: http://ollama.ollama.svc.cluster.local:11434
+            - name: OLLAMA_MODEL
+              value: qwen2.5:7b
+            - name: POSTGRES_HOST
+              value: warframe-postgres.bots.svc.cluster.local
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: warframe
+            - name: POSTGRES_USER
+              value: warframe
+            - name: TZ
+              value: Europe/Paris
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

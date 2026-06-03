@@ -30,6 +30,16 @@ spec:
     spec:
       imagePullSecrets:
         - name: ghcr-secret
+      initContainers:
+        - name: wait-for-ollama
+          image: curlimages/curl:8.7.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              until curl -sf http://ollama.ollama.svc.cluster.local:11434/api/tags > /dev/null; do
+                echo "En attente du serveur Ollama..."
+                sleep 5
+              done
       containers:
         - name: bot
           image: ghcr.io/axtazer/warframe-bot:latest
@@ -41,7 +51,7 @@ spec:
             - name: OLLAMA_HOST
               value: http://ollama.ollama.svc.cluster.local:11434
             - name: OLLAMA_MODEL
-              value: qwen2.5:7b
+              value: warframe-bot
             - name: POSTGRES_HOST
               value: warframe-postgres.bots.svc.cluster.local
             - name: POSTGRES_PORT

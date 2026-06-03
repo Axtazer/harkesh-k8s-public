@@ -242,9 +242,8 @@
       ]
     },
     {
-      "description": "Shlink postgres — bloquer major (migrations BDD irréversibles)",
+      "description": "postgres partout — bloquer major (migrations BDD irréversibles)",
       "matchPackageNames": ["postgres"],
-      "matchFileNames": ["shlink/*.yaml"],
       "matchUpdateTypes": ["major"],
       "enabled": false
     },

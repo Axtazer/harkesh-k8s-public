@@ -42,7 +42,7 @@ spec:
               done
       containers:
         - name: bot
-          image: ghcr.io/axtazer/warframe-bot:59f1fa9@sha256:5fdbf3e740e5deb2216983e111c340a50975f0101f330d3901dc1b96338bbeff
+          image: ghcr.io/axtazer/warframe-bot:ee27140@sha256:75d41e69dfaa7e503ee623e808e8f45c666220a2fb81e8e7309bc4d8e9a82765
           imagePullPolicy: Always
           envFrom:
             - secretRef:

@@ -18,8 +18,8 @@ spec:
             - name: ghcr-secret
           containers:
             - name: scraper
-              image: ghcr.io/axtazer/warframe-bot:latest
-              imagePullPolicy: Always
+              image: ghcr.io/axtazer/warframe-bot:0ef0ba3@sha256:364ae59ceb73656ea5814b5a8a90bd04761bdfff2a49b893bf880f22268d79a8
+              imagePullPolicy: IfNotPresent
               command: ["node", "scripts/scrape-builds.js"]
               envFrom:
                 - secretRef:

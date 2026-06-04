@@ -1,0 +1,89 @@
+---
+# Import warframestat.us — quotidien à 3h (suit les patches)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: warframe-wfstat-sync
+  namespace: bots
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: ghcr-secret
+          containers:
+            - name: importer
+              image: ghcr.io/axtazer/warframe-bot:latest
+              imagePullPolicy: IfNotPresent
+              command: ["node", "scripts/import-wfstat.js"]
+              envFrom:
+                - secretRef:
+                    name: warframe-bot-secrets
+              env:
+                - name: POSTGRES_HOST
+                  value: warframe-postgres.bots.svc.cluster.local
+                - name: POSTGRES_PORT
+                  value: "5432"
+                - name: POSTGRES_DB
+                  value: warframe
+                - name: POSTGRES_USER
+                  value: warframe
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+---
+# Import wiki Fandom — hebdomadaire dimanche 2h
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: warframe-wiki-sync
+  namespace: bots
+spec:
+  schedule: "0 2 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 7200
+      template:
+        spec:
+          restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: ghcr-secret
+          containers:
+            - name: importer
+              image: ghcr.io/axtazer/warframe-bot:latest
+              imagePullPolicy: IfNotPresent
+              command: ["node", "scripts/import-wiki.js"]
+              envFrom:
+                - secretRef:
+                    name: warframe-bot-secrets
+              env:
+                - name: POSTGRES_HOST
+                  value: warframe-postgres.bots.svc.cluster.local
+                - name: POSTGRES_PORT
+                  value: "5432"
+                - name: POSTGRES_DB
+                  value: warframe
+                - name: POSTGRES_USER
+                  value: warframe
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 256Mi
+                limits:
+                  cpu: 200m
+                  memory: 512Mi

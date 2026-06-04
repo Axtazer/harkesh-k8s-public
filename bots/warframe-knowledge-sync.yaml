@@ -20,7 +20,7 @@ spec:
             - name: ghcr-secret
           containers:
             - name: importer
-              image: ghcr.io/axtazer/warframe-bot:7013dc6@sha256:357e58bd254b53fdff46ca2399e6151e6f6b4205ca704396d04d1310cc18e381
+              image: ghcr.io/axtazer/warframe-bot:3c17d2f@sha256:526c8300dd9f0940048214769017c7c41f86bd3732599fd3e9a8be10e83f1d81
               imagePullPolicy: IfNotPresent
               command: ["node", "scripts/import-wfstat.js"]
               envFrom:
@@ -65,7 +65,7 @@ spec:
             - name: ghcr-secret
           containers:
             - name: importer
-              image: ghcr.io/axtazer/warframe-bot:7013dc6@sha256:357e58bd254b53fdff46ca2399e6151e6f6b4205ca704396d04d1310cc18e381
+              image: ghcr.io/axtazer/warframe-bot:3c17d2f@sha256:526c8300dd9f0940048214769017c7c41f86bd3732599fd3e9a8be10e83f1d81
               imagePullPolicy: IfNotPresent
               command: ["node", "scripts/import-wiki.js"]
               envFrom:

@@ -117,7 +117,7 @@ spec:
     - name: wings-api
       protocol: TCP
       port: 8443
-      targetPort: 8443
+      targetPort: 8080
     - name: wings-sftp
       protocol: TCP
       port: 2022

@@ -1,0 +1,74 @@
+---
+# Gère les apps (manifests K8s bruts) — un dossier = une Application
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster-apps
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/Axtazer/harkesh-k8s
+        revision: master
+        directories:
+          - path: altertrack
+          - path: axtazer-me
+          - path: bots
+          - path: etudes
+          - path: flo-pro
+          - path: jellyfin
+          - path: nextcloud
+          - path: ollama
+          - path: pelican
+          - path: shlink
+  template:
+    metadata:
+      name: '{{path.basename}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/Axtazer/harkesh-k8s
+        targetRevision: master
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{path.basename}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+---
+# Gère les composants platform (Helm charts via Application CRDs)
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster-platform
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/Axtazer/harkesh-k8s
+        revision: master
+        directories:
+          - path: monitoring/*
+          - path: infra/*
+  template:
+    metadata:
+      name: '{{path.basename}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/Axtazer/harkesh-k8s
+        targetRevision: master
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: argocd
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

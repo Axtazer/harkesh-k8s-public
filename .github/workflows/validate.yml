@@ -48,7 +48,7 @@ jobs:
             -summary \
             -strict \
             -kubernetes-version 1.32.0 \
-            -skip "Ingress,OnePasswordItem,ServiceMonitor,Application" \
+            -skip "Ingress,OnePasswordItem,ServiceMonitor,Application,ApplicationSet" \
             -ignore-filename-pattern ".*renovate.*"
 
       # ── 4. Validate CRDs (ArgoCD Application + AppProject) ───────────────────

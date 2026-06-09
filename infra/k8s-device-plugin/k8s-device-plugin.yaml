@@ -1,0 +1,32 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: k8s-device-plugin
+  namespace: argocd
+spec:
+  project: default
+  source:
+    chart: nvidia-device-plugin
+    repoURL: https://nvidia.github.io/k8s-device-plugin
+    targetRevision: 0.19.2
+    helm:
+      values: |
+        config:
+          name: nvidia-device-plugin-config
+          create: true
+          data: |
+            version: v1
+            sharing:
+              timeSlicing:
+                failRequestsGreaterThanOne: false
+                resources:
+                  - name: nvidia.com/gpu
+                    replicas: 4
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

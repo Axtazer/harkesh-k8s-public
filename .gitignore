@@ -3,3 +3,4 @@ secrets/
 pelican/caddy/
 pelican/logs/
 .claude/
+graphify-out

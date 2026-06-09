@@ -8,39 +8,39 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
-  source:
-    chart: kube-prometheus-stack
-    repoURL: https://prometheus-community.github.io/helm-charts
-    targetRevision: 86.2.2
-    helm:
-      values: |
-        alertmanager:
-          verticalPodAutoscaler:
-            enabled: false
-        grafana:
-          admin:
-            existingSecret: grafana-admin
-            userKey: username
-            passwordKey: password
-          grafana.ini:
-            analytics:
-              check_for_updates: true
-            log:
-              mode: console
-            paths:
-              data: /var/lib/grafana/
-              logs: /var/log/grafana
-              plugins: /var/lib/grafana/plugins
-              provisioning: /etc/grafana/provisioning
-            server:
-              domain: grafana.castaldo.fr
-              root_url: https://grafana.castaldo.fr
-              serve_from_sub_path: false
-            unified_storage:
-              index_path: /var/lib/grafana-search/bleve
-        prometheus:
-          verticalPodAutoscaler:
-            enabled: false
+  sources:
+    - chart: kube-prometheus-stack
+      repoURL: https://prometheus-community.github.io/helm-charts
+      targetRevision: 86.2.2
+      helm:
+        values: |
+          alertmanager:
+            verticalPodAutoscaler:
+              enabled: false
+          grafana:
+            admin:
+              existingSecret: grafana-admin
+              userKey: username
+              passwordKey: password
+            grafana.ini:
+              analytics:
+                check_for_updates: true
+              log:
+                mode: console
+              paths:
+                data: /var/lib/grafana/
+                logs: /var/log/grafana
+                plugins: /var/lib/grafana/plugins
+                provisioning: /etc/grafana/provisioning
+              server:
+                domain: grafana.castaldo.fr
+                root_url: https://grafana.castaldo.fr
+                serve_from_sub_path: false
+              unified_storage:
+                index_path: /var/lib/grafana-search/bleve
+          prometheus:
+            verticalPodAutoscaler:
+              enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

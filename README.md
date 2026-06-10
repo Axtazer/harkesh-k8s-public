@@ -6,34 +6,51 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 
 ```
 /
-├── argocd/
-│   └── argocd.yaml               # Ingress ArgoCD
+├── altertrack/
+│   ├── altertrack.yaml            # AlterTrack (app + DB)
+│   ├── namespace.yaml
+│   └── secrets.yaml
+├── argocd/                        # App-of-Apps : root Application + ApplicationSet
+│   ├── applicationset.yaml        # ApplicationSet cluster-apps (1 dossier = 1 Application)
+│   ├── appproject-default.yaml    # AppProject default (sourceRepos)
+│   ├── argocd-ingress.yaml        # Ingress ArgoCD
+│   ├── betterstack-collector.yaml # App Helm BetterStack collector
+│   ├── dcgm-exporter.yaml         # App Helm DCGM exporter (GPU)
+│   ├── helm-repositories.yaml     # Repos Helm déclarés (Secrets)
+│   ├── k8s-device-plugin.yaml     # App Helm NVIDIA device plugin (GPU)
+│   ├── kube-prometheus-stack.yaml # App Helm kube-prometheus-stack (Grafana/Prometheus)
+│   └── root-app.yaml              # Bootstrap : root Application (lit argocd/)
 ├── axtazer-me/
-│   └── axtazer-me.yaml           # Site axtazer.me
+│   └── axtazer-me.yaml            # Site axtazer.me
 ├── bots/
-│   └── axtazia.yaml              # Bot Discord/Twitch Axtazia
-├── cloudflared/
-│   └── cloudflared.yaml          # Cloudflare Tunnel (kube-system)
+│   ├── axtazia.yaml               # Bot Discord/Twitch Axtazia
+│   ├── warframe-bot.yaml
+│   ├── warframe-knowledge-sync.yaml
+│   └── warframe-postgres.yaml
 ├── etudes/
-│   ├── delivreou/
-│   │   └── delivreou-full.yaml   # Délivre Où ? (app + MariaDB)
-│   └── PageBleue/
-│       └── pagebleue.yaml        # PageBleue
+│   └── pagebleue.yaml             # PageBleue
 ├── flo-pro/
-│   ├── web_flo-pro.yaml          # Flo-Pro web
-│   └── dev_flo-pro.yaml          # Dev Flo-Pro web
+│   ├── dev_flo-pro.yaml           # Dev Flo-Pro web
+│   └── web_flo-pro.yaml           # Flo-Pro web
+├── infra/
+│   └── cloudflared/
+│       └── cloudflared.yaml       # Cloudflare Tunnel (kube-system, appliqué manuellement)
+├── jellyfin/
+│   └── jellyfin.yaml              # Jellyfin
 ├── monitoring/
-│   └── cadvisor.yaml             # cAdvisor (DaemonSet)
+│   ├── betterstack-collector-onepassword.yaml
+│   └── kube-prometheus-stack-onepassword.yaml
+├── nextcloud/
+│   └── nextcloud.yaml             # Nextcloud + MariaDB + Redis
+├── ollama/
+│   └── ollama.yaml                # Ollama
 ├── pelican/
-│   └── panel.yaml                # Pelican Panel + Services + Ingress
+│   ├── panel.yaml                 # Pelican Panel + Services + Ingress
+│   ├── wings-ingress.yaml         # Ingress Wings
+│   └── wings.yaml                 # Wings (daemon Pelican)
 ├── shlink/
-│   └── shlink.yaml               # Shlink URL shortener + Web client + PostgreSQL
-├── storageServices/
-│   └── nextcloud.yaml            # Nextcloud + MariaDB + Redis
-├── wings/
-│   ├── wings.yaml                # Wings (daemon Pelican)
-│   └── wings-ingress.yaml        # Ingress Wings
-└── renovate.json                 # Config Renovate (image tracking)
+│   └── shlink.yaml                # Shlink URL shortener + Web client + PostgreSQL
+└── renovate.json                  # Config Renovate (image tracking)
 ```
 
 ## Prérequis

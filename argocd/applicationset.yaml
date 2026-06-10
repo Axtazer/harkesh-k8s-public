@@ -17,6 +17,7 @@ spec:
           - path: etudes
           - path: flo-pro
           - path: jellyfin
+          - path: monitoring
           - path: nextcloud
           - path: ollama
           - path: pelican

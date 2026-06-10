@@ -29,7 +29,7 @@ spec:
           image: ghcr.io/pelican-dev/panel:v1.0.0-beta34@sha256:653ac7d65fd9e85eec90bfa718228c0811735ff4a809ebfcf9b70327c506c3db
           env:
             - name: APP_URL
-              value: "https://panel.castaldo.fr"
+              value: "https://panel.axtazer.me"
             - name: APP_ENV
               value: "production"
             - name: APP_DEBUG
@@ -111,7 +111,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: panel.castaldo.fr
+    - host: panel.axtazer.me
       http:
         paths:
           - path: /

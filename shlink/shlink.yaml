@@ -137,7 +137,7 @@ spec:
     spec:
       containers:
         - name: shlink
-          image: ghcr.io/shlinkio/shlink:stable@sha256:2017f078eabce2049834a004d7a51ceb6fd878b47f0ecaf58f640a3d5a711683
+          image: ghcr.io/shlinkio/shlink:stable@sha256:90fee24e6ea361a8ce0a5aec15c5b47cf2e7e8a48e224f59461360ed9064aba8
           ports:
             - containerPort: 8080
           envFrom:

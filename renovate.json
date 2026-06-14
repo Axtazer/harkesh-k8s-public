@@ -21,7 +21,8 @@
       "/wings/.+\\.yaml$/",
       "/etudes/.+\\.yaml$/",
       "/shlink/.+\\.yaml$/",
-      "/jellyfin/.+\\.yaml$/"
+      "/jellyfin/.+\\.yaml$/",
+      "/n8n/.+\\.yaml$/"
     ]
   },
   "customManagers": [
@@ -36,6 +37,17 @@
       "depNameTemplate": "yannh/kubeconform",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v?(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^n8n/helm-values\\.yaml$/"
+      ],
+      "matchStrings": [
+        "repository:\\s*n8nio/n8n\\s*\\n\\s*tag:\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "n8nio/n8n",
+      "datasourceTemplate": "docker"
     }
   ],
   "packageRules": [
@@ -298,6 +310,41 @@
       ],
       "labels": [
         "media",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "n8n — digest/patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "n8nio/n8n"
+      ],
+      "groupName": "n8n",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "n8n",
+        "automerge"
+      ]
+    },
+    {
+      "description": "n8n major — toujours manuel (breaking changes entre versions majeures)",
+      "matchPackageNames": [
+        "n8nio/n8n"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "n8n",
         "manual-review"
       ]
     },

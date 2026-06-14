@@ -46,3 +46,15 @@ stringData:
   type: helm
   name: betterstack
   url: https://betterstackhq.github.io/collector-helm-chart
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-8gears
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: 8gears
+  url: https://8gears.container-registry.com/chartrepo/library

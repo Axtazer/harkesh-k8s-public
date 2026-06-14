@@ -1,0 +1,82 @@
+# Values pour le chart 8gears/n8n-helm-chart v2.0.0
+# Schema vérifié contre https://github.com/8gears/n8n-helm-chart/blob/2.0.0/n8n/values.yaml
+image:
+  repository: n8nio/n8n
+  tag: "1.122.4"
+  pullPolicy: IfNotPresent
+
+# Cloudflare Tunnel gère le routing — pas d'Ingress k8s
+ingress:
+  enabled: false
+
+main:
+  replicaCount: 1
+
+  # Converti en variables d'environnement (clés imbriquées jointes par "_" et uppercase)
+  config:
+    n8n:
+      host: n8n.castaldo.fr
+      protocol: https
+      port: 5678
+    webhook_url: https://n8n.castaldo.fr/
+    db:
+      type: postgresdb
+      postgresdb:
+        host: postgres.n8n.svc.cluster.local
+        port: 5432
+        database: n8n
+        user: n8n
+
+  # Pas de main.secret: {} (finirait en clair dans values.yaml) — on référence
+  # le Secret n8n-secrets généré par le 1Password Connect Operator via extraEnv
+  extraEnv:
+    N8N_ENCRYPTION_KEY:
+      valueFrom:
+        secretKeyRef:
+          name: n8n-secrets
+          key: N8N_ENCRYPTION_KEY
+    DB_POSTGRESDB_PASSWORD:
+      valueFrom:
+        secretKeyRef:
+          name: n8n-secrets
+          key: DB_POSTGRESDB_PASSWORD
+
+  persistence:
+    enabled: true
+    type: dynamic
+    storageClass: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 5Gi
+    # mountPath fixé par le chart à /home/node/.n8n (non configurable via values)
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 5678
+
+# Homelab single-node : pas de queue mode, pas de pods superflus.
+# Le chart 2.0.0 n'a pas de clé top-level `scaling` — worker/webhook désactivés
+# (= défauts du chart) et valkey (dépendance du mode queue) explicitement désactivé.
+worker:
+  enabled: false
+
+webhook:
+  enabled: false
+
+valkey:
+  enabled: false

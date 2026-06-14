@@ -49,7 +49,8 @@ jobs:
             -strict \
             -kubernetes-version 1.32.0 \
             -skip "Ingress,OnePasswordItem,ServiceMonitor,Application,ApplicationSet,AppProject" \
-            -ignore-filename-pattern ".*renovate.*"
+            -ignore-filename-pattern ".*renovate.*" \
+            -ignore-filename-pattern ".*helm-values.*"
 
       # ── 4. Validate CRDs (ArgoCD Application + AppProject) ───────────────────
       # Schemas communautaires : https://github.com/datreeio/CRDs-catalog
@@ -62,7 +63,8 @@ jobs:
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
             -ignore-missing-schemas \
-            -ignore-filename-pattern ".*renovate.*"
+            -ignore-filename-pattern ".*renovate.*" \
+            -ignore-filename-pattern ".*helm-values.*"
 
       # ── 5. Vérification des digests SHA présents (sécurité supply chain) ─────
       # Vérifie que les images critiques (nextcloud, mariadb, pelican) ont un digest pinné

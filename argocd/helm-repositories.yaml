@@ -57,4 +57,5 @@ metadata:
 stringData:
   type: helm
   name: 8gears
-  url: https://8gears.container-registry.com/chartrepo/library
+  enableOCI: "true"
+  url: 8gears.container-registry.com/library

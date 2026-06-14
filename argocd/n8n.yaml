@@ -17,8 +17,8 @@ spec:
     - repoURL: https://github.com/Axtazer/harkesh-k8s
       targetRevision: master
       ref: values
-    # Chart Helm n8n
-    - repoURL: https://8gears.container-registry.com/chartrepo/library
+    # Chart Helm n8n (registre OCI Harbor — l'ancien chartrepo classique n'est plus servi)
+    - repoURL: 8gears.container-registry.com/library
       chart: n8n
       targetRevision: 2.0.0
       helm:

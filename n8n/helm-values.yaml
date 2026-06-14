@@ -2,7 +2,7 @@
 # Schema vérifié contre https://github.com/8gears/n8n-helm-chart/blob/2.0.0/n8n/values.yaml
 image:
   repository: n8nio/n8n
-  tag: "1.122.4"
+  tag: "1.123.54"
   pullPolicy: IfNotPresent
 
 # Cloudflare Tunnel gère le routing — pas d'Ingress k8s

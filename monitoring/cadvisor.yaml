@@ -98,6 +98,8 @@ kind: ServiceMonitor
 metadata:
   name: cadvisor
   namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
 spec:
   selector:
     matchLabels:

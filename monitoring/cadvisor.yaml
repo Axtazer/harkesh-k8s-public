@@ -106,6 +106,7 @@ spec:
       app: cadvisor
   endpoints:
     - port: http
+      path: /metrics
       interval: 30s
       metricRelabelings:
         - sourceLabels: [container_label_io_kubernetes_pod_namespace]

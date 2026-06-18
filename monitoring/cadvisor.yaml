@@ -52,7 +52,7 @@ spec:
               memory: 200Mi
             limits:
               cpu: 300m
-              memory: 400Mi
+              memory: 600Mi
           livenessProbe:
             httpGet:
               path: /healthz

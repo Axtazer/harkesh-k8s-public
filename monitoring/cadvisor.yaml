@@ -31,6 +31,7 @@ spec:
             - --housekeeping_interval=30s
             - --max_housekeeping_interval=35s
             - --disable_metrics=sched,tcp,udp
+            - --docker_only=true
           volumeMounts:
             - name: rootfs
               mountPath: /rootfs

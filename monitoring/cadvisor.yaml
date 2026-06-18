@@ -109,6 +109,7 @@ spec:
     - port: http
       path: /metrics
       interval: 30s
+      scrapeTimeout: 25s
       metricRelabelings:
         - sourceLabels: [container_label_io_kubernetes_pod_namespace]
           regex: ".+"

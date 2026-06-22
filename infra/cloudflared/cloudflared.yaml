@@ -3,7 +3,7 @@ apiVersion: onepassword.com/v1
 kind: OnePasswordItem
 metadata:
   name: cloudflared-token
-  namespace: kube-system
+  namespace: cloudflared
 spec:
   itemPath: "vaults/k8s-home/items/cloudflared"
 ---
@@ -11,7 +11,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cloudflared
-  namespace: kube-system
+  namespace: cloudflared
 spec:
   replicas: 1
   selector:

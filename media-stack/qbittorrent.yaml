@@ -34,15 +34,16 @@ spec:
         - name: gluetun
           image: ghcr.io/qdm12/gluetun:latest@sha256:d180743987bb24da1d749a1d7f3a78026e64ba2d09d2e08cc34b0acee7f7321b
           securityContext:
-            capabilities:
-              add:
-                - "NET_ADMIN"
-                - "NET_RAW"
+            privileged: true
           env:
             - name: VPN_SERVICE_PROVIDER
               value: mullvad
             - name: VPN_TYPE
               value: wireguard
+            - name: WIREGUARD_IMPLEMENTATION
+              value: userspace
+            - name: WIREGUARD_MTU
+              value: "1420"
             - name: WIREGUARD_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
@@ -62,7 +63,7 @@ spec:
             - name: DNS_UPSTREAM_RESOLVER_TYPE
               value: "plain"
             - name: DNS_UPSTREAM_PLAIN_ADDRESSES
-              value: "100.64.0.3:53"
+              value: "1.1.1.1:53,8.8.8.8:53"
             - name: TZ
               value: Europe/Paris
             - name: UPDATER_PERIOD

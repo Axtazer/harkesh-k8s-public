@@ -75,6 +75,8 @@ spec:
               value: "off"
             - name: DNS_KEEP_NAMESERVERS
               value: "on"
+            - name: DOT
+              value: "off"
           resources:
             requests:
               cpu: 50m

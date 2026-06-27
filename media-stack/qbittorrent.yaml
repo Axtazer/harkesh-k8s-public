@@ -60,7 +60,7 @@ spec:
             - name: DNS_UPSTREAM_RESOLVER_TYPE
               value: "plain"
             - name: DNS_UPSTREAM_PLAIN_ADDRESSES
-              value: "1.1.1.1,8.8.8.8"
+              value: "100.64.0.3:53"
             - name: TZ
               value: Europe/Paris
             - name: UPDATER_PERIOD

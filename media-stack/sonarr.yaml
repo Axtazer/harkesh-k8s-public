@@ -42,8 +42,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
-            - name: tv
-              mountPath: /tv
+            - name: series
+              mountPath: /series
             - name: anime
               mountPath: /anime
           livenessProbe:
@@ -63,9 +63,9 @@ spec:
           hostPath:
             path: /mnt/hdd/media/config/sonarr
             type: DirectoryOrCreate
-        - name: tv
+        - name: series
           hostPath:
-            path: /mnt/hdd/media/files/tv
+            path: /mnt/hdd/media/files/series
             type: DirectoryOrCreate
         - name: anime
           hostPath:

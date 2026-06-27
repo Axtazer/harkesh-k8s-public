@@ -20,7 +20,6 @@ spec:
         project: media-server
         component: qbittorrent
     spec:
-      priorityClassName: streaming
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

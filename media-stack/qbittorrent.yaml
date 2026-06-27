@@ -1,11 +1,4 @@
 ---
-# ⚠️  Prérequis : créer le Secret avant d'appliquer ce manifest
-#    kubectl create secret generic mullvad-credentials \
-#      --namespace media \
-#      --from-literal=wireguard-private-key='<ta_clé_privée_WireGuard_Mullvad>'
-#
-# La clé privée WireGuard se génère depuis : Mullvad → Account → WireGuard keys
-# L'account number seul ne suffit pas pour WireGuard — Gluetun a besoin de la clé privée.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,7 +22,6 @@ spec:
         app: qbittorrent
     spec:
       initContainers:
-        # S'assure que le module tun est chargé avant Gluetun
         - name: tun-init
           image: busybox:latest@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
           command: ["sh", "-c", "test -c /dev/net/tun && echo 'tun ok' || (mknod /dev/net/tun c 10 200 && echo 'tun created')"]
@@ -39,7 +31,6 @@ spec:
             - name: dev-net
               mountPath: /dev/net
       containers:
-        # ── Gluetun : VPN WireGuard Mullvad ──────────────────────────────────
         - name: gluetun
           image: ghcr.io/qdm12/gluetun:latest@sha256:d180743987bb24da1d749a1d7f3a78026e64ba2d09d2e08cc34b0acee7f7321b
           securityContext:
@@ -65,7 +56,9 @@ spec:
             - name: HEALTH_TARGET_ADDRESSES
               value: "1.1.1.1:443,8.8.8.8:443"
             - name: DNS_SERVER
-              value: "1.1.1.1"
+              value: "disabled"
+            - name: DNS_KEEP_NAMESERVERS
+              value: "on"
             - name: TZ
               value: Europe/Paris
             - name: UPDATER_PERIOD
@@ -87,7 +80,6 @@ spec:
             periodSeconds: 60
             timeoutSeconds: 10
 
-        # ── qBittorrent : partage le réseau du pod (via Gluetun) ─────────────
         - name: qbittorrent
           image: lscr.io/linuxserver/qbittorrent:latest@sha256:abbf2aeeb58b641977a012d0ab69939eb277cb827078450b142f782b1cd6893c
           env:

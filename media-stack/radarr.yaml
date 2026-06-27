@@ -42,8 +42,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
-            - name: movies
-              mountPath: /movies
+            - name: films
+              mountPath: /films
           livenessProbe:
             httpGet:
               path: /
@@ -61,10 +61,10 @@ spec:
           hostPath:
             path: /mnt/hdd/media/config/radarr
             type: DirectoryOrCreate
-        - name: movies
+        - name: films
           hostPath:
-            path: /mnt/hdd/media/files/movies
-            type: DirectoryOrCreate
+            path: /mnt/hdd/media/files/films
+            type: Directory
 ---
 apiVersion: v1
 kind: Service

@@ -66,17 +66,10 @@ spec:
             - name: UPDATER_PERIOD
               value: 24h
 
-            # --- LES CORRECTIFS POUR EVITER LES CRASH INUTILES ---
             - name: HEALTH_VPN_STATUS_INITIAL
               value: "off"
             - name: HEALTH_VPN_STATUS_ON_CHECK_FAILURE
               value: "keep"
-            - name: DNS_SERVER
-              value: "off"
-            - name: DNS_KEEP_NAMESERVERS
-              value: "on"
-            - name: DOT
-              value: "off"
           resources:
             requests:
               cpu: 50m
@@ -119,8 +112,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
-            - name: movies
-              mountPath: /movies
+            - name: films
+              mountPath: /films
             - name: series
               mountPath: /series
             - name: anime
@@ -141,10 +134,10 @@ spec:
           hostPath:
             path: /mnt/hdd/media/config/qbittorrent
             type: DirectoryOrCreate
-        - name: movies
+        - name: films
           hostPath:
-            path: /mnt/hdd/media/files/movies
-            type: DirectoryOrCreate
+            path: /mnt/hdd/media/files/films
+            type: Directory
         - name: series
           hostPath:
             path: /mnt/hdd/media/files/series

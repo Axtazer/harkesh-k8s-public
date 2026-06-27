@@ -180,7 +180,7 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:alpine@sha256:09160599abd229764c0fb44cb6be640294e1d360a54b19985ab4843dcf2d90f1
+          image: redis:alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
           ports:
             - containerPort: 6379
           resources:
@@ -223,7 +223,7 @@ spec:
     spec:
       containers:
         - name: nextcloud
-          image: nextcloud:apache@sha256:caa40b8beaf0057ac213d8dfc515c36ce64f7a8f0825b6a287e6f7cf2f4a095d
+          image: nextcloud:apache@sha256:4d4a6b5ed15a7eb4537538c848eb78833f53bed62f93e7d5af144f360cd53ff2
           env:
             - name: MYSQL_DATABASE
               valueFrom:
@@ -346,7 +346,7 @@ spec:
         spec:
           containers:
             - name: nextcloud-cron
-              image: nextcloud:apache@sha256:caa40b8beaf0057ac213d8dfc515c36ce64f7a8f0825b6a287e6f7cf2f4a095d
+              image: nextcloud:apache@sha256:4d4a6b5ed15a7eb4537538c848eb78833f53bed62f93e7d5af144f360cd53ff2
               command:
                 - su
                 - -s

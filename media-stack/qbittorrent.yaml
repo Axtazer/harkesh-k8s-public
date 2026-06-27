@@ -73,6 +73,8 @@ spec:
               value: "keep"
             - name: DNS_SERVER
               value: "off"
+            - name: DNS_KEEP_NAMESERVERS
+              value: "on"
           resources:
             requests:
               cpu: 50m
@@ -83,7 +85,6 @@ spec:
           volumeMounts:
             - name: dev-net
               mountPath: /dev/net
-          # Nouvelle Liveness Probe via HTTP sur le port control plutôt qu'un wget risqué
           livenessProbe:
             httpGet:
               path: /

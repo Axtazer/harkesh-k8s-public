@@ -56,9 +56,11 @@ spec:
             - name: HEALTH_TARGET_ADDRESSES
               value: "1.1.1.1:443,8.8.8.8:443"
             - name: DNS_SERVER
-              value: "disabled"
-            - name: DNS_KEEP_NAMESERVERS
-              value: "on"
+              value: "enabled"
+            - name: DNS_UPSTREAM_RESOLVER_TYPE
+              value: "plain"
+            - name: DNS_UPSTREAM_PLAIN_ADDRESSES
+              value: "1.1.1.1,8.8.8.8"
             - name: TZ
               value: Europe/Paris
             - name: UPDATER_PERIOD

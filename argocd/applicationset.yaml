@@ -11,12 +11,11 @@ spec:
         repoURL: https://github.com/Axtazer/harkesh-k8s
         revision: master
         directories:
-          - path: altertrack
           - path: axtazer-me
           - path: bots
-          - path: etudes
           - path: flo-pro
           - path: jellyfin
+          - path: media-stack
           - path: monitoring
           - path: nextcloud
           - path: ollama

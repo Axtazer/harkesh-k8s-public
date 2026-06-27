@@ -1,0 +1,178 @@
+---
+# ⚠️  Prérequis : créer le Secret avant d'appliquer ce manifest
+#    kubectl create secret generic mullvad-credentials \
+#      --namespace media \
+#      --from-literal=wireguard-private-key='<ta_clé_privée_WireGuard_Mullvad>'
+#
+# La clé privée WireGuard se génère depuis : Mullvad → Account → WireGuard keys
+# L'account number seul ne suffit pas pour WireGuard — Gluetun a besoin de la clé privée.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qbittorrent
+  namespace: media
+  labels:
+    app: qbittorrent
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: qbittorrent
+  template:
+    metadata:
+      labels:
+        app: qbittorrent
+    spec:
+      initContainers:
+        # S'assure que le module tun est chargé avant Gluetun
+        - name: tun-init
+          image: busybox:latest
+          command: ["sh", "-c", "test -c /dev/net/tun && echo 'tun ok' || (mknod /dev/net/tun c 10 200 && echo 'tun created')"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: dev-net
+              mountPath: /dev/net
+      containers:
+        # ── Gluetun : VPN WireGuard Mullvad ──────────────────────────────────
+        - name: gluetun
+          image: ghcr.io/qdm12/gluetun:latest
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          env:
+            - name: VPN_SERVICE_PROVIDER
+              value: mullvad
+            - name: VPN_TYPE
+              value: wireguard
+            - name: WIREGUARD_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mullvad-credentials
+                  key: wireguard-private-key
+            # Permet au trafic cluster (pod→arr apps) de bypasser le VPN
+            - name: FIREWALL_OUTBOUND_SUBNETS
+              value: "10.42.0.0/16,10.43.0.0/16"
+            - name: TZ
+              value: Europe/Paris
+            - name: UPDATER_PERIOD
+              value: 24h
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: dev-net
+              mountPath: /dev/net
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "wget -qO- https://api.ipify.org || exit 1"]
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 10
+
+        # ── qBittorrent : partage le réseau du pod (via Gluetun) ─────────────
+        - name: qbittorrent
+          image: lscr.io/linuxserver/qbittorrent:latest
+          env:
+            - name: PUID
+              value: "0"
+            - name: PGID
+              value: "0"
+            - name: TZ
+              value: Europe/Paris
+            - name: WEBUI_PORT
+              value: "8080"
+          ports:
+            - containerPort: 8080
+              name: webui
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: movies
+              mountPath: /movies
+            - name: tv
+              mountPath: /tv
+            - name: anime
+              mountPath: /anime
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+      volumes:
+        - name: dev-net
+          hostPath:
+            path: /dev/net
+            type: DirectoryOrCreate
+        - name: config
+          hostPath:
+            path: /mnt/hdd/media/config/qbittorrent
+            type: DirectoryOrCreate
+        - name: movies
+          hostPath:
+            path: /mnt/hdd/media/files/movies
+            type: DirectoryOrCreate
+        - name: tv
+          hostPath:
+            path: /mnt/hdd/media/files/tv
+            type: DirectoryOrCreate
+        - name: anime
+          hostPath:
+            path: /mnt/hdd/media/files/anime
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent
+  namespace: media
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  type: ClusterIP
+  selector:
+    app: qbittorrent
+  ports:
+    - name: webui
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qbittorrent
+  namespace: media
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: qbit.axtazer.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qbittorrent
+                port:
+                  number: 8080

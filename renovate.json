@@ -13,15 +13,14 @@
     "managerFilePatterns": [
       "/argocd\\.yaml$/",
       "/bots/.+\\.yaml$/",
-      "/cloudflared/.+\\.yaml$/",
+      "/infra/cloudflared/.+\\.yaml$/",
       "/flo-pro/.+\\.yaml$/",
       "/monitoring/.+\\.yaml$/",
       "/pelican/.+\\.yaml$/",
-      "/storageServices/.+\\.yaml$/",
-      "/wings/.+\\.yaml$/",
-      "/etudes/.+\\.yaml$/",
+      "/nextcloud/.+\\.yaml$/",
       "/shlink/.+\\.yaml$/",
       "/jellyfin/.+\\.yaml$/",
+      "/media-stack/.+\\.yaml$/",
       "/n8n/.+\\.yaml$/"
     ]
   },
@@ -59,7 +58,7 @@
         "redis"
       ],
       "matchFileNames": [
-        "storageServices/nextcloud.yaml"
+        "nextcloud/nextcloud.yaml"
       ],
       "groupName": "nextcloud-stack",
       "automerge": false,
@@ -166,23 +165,6 @@
       ]
     },
     {
-      "description": "Delivreou — digest automerge (image interne)",
-      "matchPackageNames": [
-        "ghcr.io/axtazer/delivreou"
-      ],
-      "groupName": "delivreou",
-      "minimumReleaseAge": "0 days",
-      "automerge": true,
-      "automergeType": "pr",
-      "matchUpdateTypes": [
-        "digest"
-      ],
-      "labels": [
-        "delivreou",
-        "automerge"
-      ]
-    },
-    {
       "description": "Cloudflared — digest/patch/minor automerge, major manuel",
       "matchPackageNames": [
         "cloudflare/cloudflared"
@@ -222,7 +204,7 @@
       "matchPackageNames": [
         "busybox"
       ],
-      "groupName": "delivreou-utils",
+      "groupName": "utils",
       "automerge": true,
       "automergeType": "pr",
       "matchUpdateTypes": [
@@ -346,6 +328,29 @@
       "labels": [
         "n8n",
         "manual-review"
+      ]
+    },
+    {
+      "description": "media-stack *arr + Gluetun + Jellyseerr — digest/patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "lscr.io/linuxserver/prowlarr",
+        "lscr.io/linuxserver/radarr",
+        "lscr.io/linuxserver/sonarr",
+        "lscr.io/linuxserver/qbittorrent",
+        "ghcr.io/qdm12/gluetun",
+        "fallenbagel/jellyseerr"
+      ],
+      "groupName": "media-stack",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "media",
+        "automerge"
       ]
     },
     {

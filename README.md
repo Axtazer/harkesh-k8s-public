@@ -6,10 +6,10 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 
 ```
 /
-├── altertrack/
-│   ├── altertrack.yaml            # AlterTrack (app + DB)
-│   ├── namespace.yaml
-│   └── secrets.yaml
+├── _archived/                     # Apps hors service (manifests conservés pour référence)
+│   ├── altertrack/                #   AlterTrack (archivé 2026-06-27)
+│   ├── etudes/                    #   PageBleue (archivé 2026-06-27)
+│   └── cloudflare-tunnel-routes.md #  Routes tunnel supprimées
 ├── argocd/                        # App-of-Apps : root Application + ApplicationSet
 │   ├── applicationset.yaml        # ApplicationSet cluster-apps (1 dossier = 1 Application)
 │   ├── appproject-default.yaml    # AppProject default (sourceRepos)
@@ -28,8 +28,6 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 │   ├── warframe-bot.yaml
 │   ├── warframe-knowledge-sync.yaml
 │   └── warframe-postgres.yaml
-├── etudes/
-│   └── pagebleue.yaml             # PageBleue
 ├── flo-pro/
 │   ├── dev_flo-pro.yaml           # Dev Flo-Pro web
 │   └── web_flo-pro.yaml           # Flo-Pro web
@@ -38,6 +36,13 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 │       └── cloudflared.yaml       # Cloudflare Tunnel (kube-system, appliqué manuellement)
 ├── jellyfin/
 │   └── jellyfin.yaml              # Jellyfin
+├── media-stack/                   # Stack *arr (namespace media)
+│   ├── secrets.yaml               #   OnePasswordItem mullvad-credentials
+│   ├── prowlarr.yaml              #   Indexers — prowlarr.axtazer.me
+│   ├── radarr.yaml                #   Films — radarr.axtazer.me
+│   ├── sonarr.yaml                #   Séries + anime — sonarr.axtazer.me
+│   ├── qbittorrent.yaml           #   Torrent + Gluetun VPN — qbit.axtazer.me
+│   └── jellyseerr.yaml            #   Demandes médias — jellyseerr.axtazer.me
 ├── monitoring/
 │   ├── betterstack-collector-onepassword.yaml
 │   └── kube-prometheus-stack-onepassword.yaml
@@ -133,7 +138,7 @@ argocd app create root --repo git@github.com:Axtazer/harkesh-k8s.git --path argo
 
 `root` déploie ensuite automatiquement :
 - l'ApplicationSet `cluster-apps` (`argocd/applicationset.yaml`), qui crée une Application par dossier listé
-  (`altertrack`, `axtazer-me`, `bots`, `etudes`, `flo-pro`, `jellyfin`, `monitoring`, `nextcloud`, `ollama`, `pelican`, `shlink`) ;
+  (`axtazer-me`, `bots`, `flo-pro`, `jellyfin`, `media-stack`, `monitoring`, `nextcloud`, `ollama`, `pelican`, `shlink`) ;
 - les Applications Helm dédiées : `argocd/n8n.yaml`, `argocd/kube-prometheus-stack.yaml`, `argocd/dcgm-exporter.yaml`,
   `argocd/betterstack-collector.yaml`, `argocd/k8s-device-plugin.yaml`.
 
@@ -166,22 +171,18 @@ helm install dcgm-exporter gpu-helm-charts/dcgm-exporter \
 
 Tous les secrets sont dans le vault `k8s-home` sur 1Password et injectés automatiquement par le **1Password Connect Operator** via les `OnePasswordItem` définis dans chaque manifest.
 
-| Item 1Password   | Secret K8s            | Namespace     |
-|------------------|-----------------------|---------------|
-| `nextcloud-db`   | `nextcloud-db-secret` | `nextcloud`   |
-| `axtazia-bot`    | `axtazia-secrets`     | `bots`        |
-| `cloudflared`    | `cloudflared-token`   | `kube-system` |
-| `delivreou`      | `delivreou-env`       | `delivreou`   |
-| `pagebleue-env`  | `pagebleue-env`       | `etudes`      |
-| `shlink`         | `shlink-secrets`      | `shlink`      |
-| `shlink-db`      | `shlink-db-secret`    | `shlink`      |
-| `axtazer-me`     | `axtazer-secrets`     | `axtazer-me`  |
-| `grafana-admin`  | `grafana-admin`       | `monitoring`  |
-| `n8n`            | `n8n-secrets`         | `n8n`         |
-| `n8n-db`         | `n8n-db-secrets`      | `n8n`         |
-
-> ⚠️ **[retiré - 2026-06-14]** : l'item `delivreou` / secret `delivreou-env` (namespace `delivreou`) ne correspond à
-> aucun manifest présent dans le repo actuel (voir aussi la table [Services](#services) et [Renovate](#renovate)).
+| Item 1Password        | Secret K8s              | Namespace     |
+|-----------------------|-------------------------|---------------|
+| `nextcloud-db`        | `nextcloud-db-secret`   | `nextcloud`   |
+| `axtazia-bot`         | `axtazia-secrets`       | `bots`        |
+| `cloudflared`         | `cloudflared-token`     | `kube-system` |
+| `shlink`              | `shlink-secrets`        | `shlink`      |
+| `shlink-db`           | `shlink-db-secret`      | `shlink`      |
+| `axtazer-me`          | `axtazer-secrets`       | `axtazer-me`  |
+| `grafana-admin`       | `grafana-admin`         | `monitoring`  |
+| `n8n`                 | `n8n-secrets`           | `n8n`         |
+| `n8n-db`              | `n8n-db-secrets`        | `n8n`         |
+| `mullvad-credentials` | `mullvad-credentials`   | `media`       |
 
 ## Secrets gérés manuellement
 
@@ -193,7 +194,7 @@ car celui-ci ne supporte pas le type `kubernetes.io/dockerconfigjson` (bug #95).
 À recréer manuellement après chaque réinstallation dans chaque namespace qui utilise des images GHCR privées :
 
 ```bash
-for ns in bots axtazer-me etudes flo-pro altertrack; do
+for ns in bots axtazer-me flo-pro; do
   kubectl create secret docker-registry ghcr-secret \
     --docker-server=ghcr.io \
     --docker-username=Axtazer \
@@ -224,10 +225,15 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | Nextcloud | `nextcloud` | `https://nas.castaldo.fr` | `http://nextcloud.nextcloud.svc.cluster.local:80` | `apache` (digest pinné) | |
 | MariaDB (nextcloud) | `nextcloud` | interne uniquement | `http://mariadb.nextcloud.svc.cluster.local:3306` | `11` | |
 | Redis (nextcloud) | `nextcloud` | interne uniquement | `http://redis.nextcloud.svc.cluster.local:6379` | `alpine` | |
-| AlterTrack (frontend) | `altertrack` | `https://altertrack.castaldo.fr` | `http://altertrack-frontend.altertrack.svc.cluster.local:80` | `latest` (digest pinné) | |
-| AlterTrack (backend) | `altertrack` | `https://altertrack.castaldo.fr/api` | `http://altertrack-backend.altertrack.svc.cluster.local:3001` | `latest` (digest pinné) | |
-| PageBleue | `etudes` | non documenté dans le repo (config Cloudflare Tunnel via dashboard) | `http://pagebleue.etudes.svc.cluster.local:80` | `965117c` (digest pinné) | |
 | Jellyfin | `media` | `https://stream.axtazer.me` | `http://jellyfin.media.svc.cluster.local:8096` | `10.11.11` | |
+| Prowlarr | `media` | `https://prowlarr.axtazer.me` | `http://prowlarr.media.svc.cluster.local:9696` | `latest` (linuxserver) | |
+| Radarr | `media` | `https://radarr.axtazer.me` | `http://radarr.media.svc.cluster.local:7878` | `latest` (linuxserver) | |
+| Sonarr | `media` | `https://sonarr.axtazer.me` | `http://sonarr.media.svc.cluster.local:8989` | `latest` (linuxserver) | |
+| qBittorrent + Gluetun | `media` | `https://qbit.axtazer.me` | `http://qbittorrent.media.svc.cluster.local:8080` | `latest` (linuxserver + gluetun) | VPN Mullvad WireGuard en sidecar |
+| Jellyseerr | `media` | `https://jellyseerr.axtazer.me` | `http://jellyseerr.media.svc.cluster.local:5055` | `latest` (fallenbagel) | |
+| **[archivé 2026-06-27]** AlterTrack | — | `https://altertrack.castaldo.fr` | — | — | Manifests dans `_archived/altertrack/` |
+| **[archivé 2026-06-27]** PageBleue | — | `https://pagebleue.castaldo.fr` | — | — | Manifests dans `_archived/etudes/` |
+| **[archivé 2026-06-27]** Delivreou | — | `https://delivreou.castaldo.fr` | — | — | Jamais de manifest dans le repo |
 | Ollama | `ollama` | interne uniquement | `http://ollama.ollama.svc.cluster.local:11434` | `0.9.0` | |
 | Axtazia Bot | `bots` | — (bot Discord/Twitch, pas de service exposé) | — | `latest` (digest pinné) | |
 | Warframe Bot | `bots` | — (bot Discord, pas de service exposé) | — | digest pinné (`90375df`) | |
@@ -246,9 +252,9 @@ Les images Docker sont suivies et mises à jour automatiquement via Renovate (co
 | `nextcloud` + `mariadb` + `redis` | Manuel — review obligatoire |
 | `ghcr.io/pelican-dev/*` | Automerge digest/patch/minor |
 | `cloudflare/cloudflared` | Automerge digest/patch/minor |
-| `gcr.io/cadvisor/cadvisor` | **[retiré - 2026-06-14]** : aucun manifest correspondant dans le repo actuel |
+| `gcr.io/cadvisor/cadvisor` | **[retiré - 2026-06-14]** |
 | `ghcr.io/axtazer/axtazia` | Automerge digest |
-| `ghcr.io/axtazer/delivreou` | Automerge digest |
+| `ghcr.io/axtazer/delivreou` | **[archivé - 2026-06-27]** |
 | `ghcr.io/axtazer/flo-pro` | Automerge digest |
 | `ghcr.io/axtazer/axtazer-me` | Non suivi (package privé) |
 | `ghcr.io/shlinkio/shlink` | Automerge digest/patch/minor |

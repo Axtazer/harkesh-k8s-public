@@ -22,16 +22,26 @@ Contient tous les manifests K8s, gérés via ArgoCD + Cloudflare Tunnel.
 ## Structure
 ```
 harkesh-k8s/
-├── altertrack/          # AlterTrack webapp
 ├── argocd/              # ArgoCD config
-├── bots/                # Axtazia bot
-├── cloudflared/         # Cloudflare Tunnel
-├── etudes/              # Apps étudiantes (delivreou, PageBleue)
+├── axtazer-me/          # Site axtazer.me
+├── bots/                # Axtazia bot + Warframe bot
 ├── flo-pro/             # flo-pro (prod + dev)
-├── monitoring/          # cAdvisor
-├── pelican/             # Panel Pelican
-├── storageServices/     # Nextcloud stack
-├── wings/               # Wings (Pelican)
+├── infra/cloudflared/   # Cloudflare Tunnel
+├── jellyfin/            # Jellyfin (namespace media)
+├── media-stack/         # Stack *arr (namespace media)
+│   ├── secrets.yaml     #   OnePasswordItem mullvad-credentials
+│   ├── prowlarr.yaml    #   Indexers — prowlarr.axtazer.me
+│   ├── radarr.yaml      #   Films   — radarr.axtazer.me
+│   ├── sonarr.yaml      #   Séries + anime — sonarr.axtazer.me
+│   ├── qbittorrent.yaml #   Torrent + Gluetun VPN — qbit.axtazer.me
+│   └── jellyseerr.yaml  #   Demandes médias — jellyseerr.axtazer.me
+├── monitoring/          # cAdvisor + kube-prometheus-stack
+├── n8n/                 # n8n automation
+├── nextcloud/           # Nextcloud stack
+├── ollama/              # Ollama LLM
+├── pelican/             # Panel Pelican + Wings
+├── shlink/              # Raccourcisseur d'URL
+├── _archived/           # Apps hors service (altertrack, pagebleue)
 ├── .github/workflows/
 │   ├── update-image.yml # Mise à jour digests images internes
 │   ├── validate.yml     # Validation kubeconform
@@ -48,10 +58,7 @@ Déclenché par `repository_dispatch` (type `image-updated`) depuis les pipeline
 **Apps supportées** (payload `app`) :
 | app | fichier patché |
 |---|---|
-| `altertrack` / `dev-altertrack` | `altertrack/altertrack.yaml` |
 | `flo-pro` / `dev-flo-pro` | `flo-pro/web_flo-pro.yaml` / `flo-pro/dev_flo-pro.yaml` |
-| `delivreou` | `etudes/delivreou/delivreou-full.yaml` |
-| `pagebleue` | `etudes/PageBleue/pagebleue.yaml` |
 
 **Logique de branche** (`chore/update-images`) :
 - Repart toujours de `master` (évite les conflits de rebase accumulés)

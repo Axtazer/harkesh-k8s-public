@@ -63,6 +63,12 @@ spec:
             # Permet au trafic cluster (pod→arr apps) de bypasser le VPN
             - name: FIREWALL_OUTBOUND_SUBNETS
               value: "10.42.0.0/16,10.43.0.0/16"
+            # Healthcheck en IP directe — évite la dépendance DNS↔VPN circulaire
+            - name: HEALTH_TARGET_ADDRESSES
+              value: "1.1.1.1:443,8.8.8.8:443"
+            # DoT désactivé — le DNS du cluster gère la résolution hors VPN
+            - name: DOT
+              value: "off"
             - name: TZ
               value: Europe/Paris
             - name: UPDATER_PERIOD

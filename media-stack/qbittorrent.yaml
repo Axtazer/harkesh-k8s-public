@@ -57,6 +57,8 @@ spec:
                 secretKeyRef:
                   name: mullvad-credentials
                   key: wireguard-address
+            - name: SERVER_COUNTRIES
+              value: Sweden
             - name: FIREWALL_OUTBOUND_SUBNETS
               value: "10.42.0.0/16,10.43.0.0/16,10.0.0.0/16"
             - name: HEALTH_TARGET_ADDRESSES

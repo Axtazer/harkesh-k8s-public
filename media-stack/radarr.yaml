@@ -35,17 +35,17 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 128Mi
+              memory: 512Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 2Gi
           volumeMounts:
             - name: config
               mountPath: /config
             - name: films
-              mountPath: /films
+              mountPath: /data/files/films
             - name: downloads
-              mountPath: /downloads
+              mountPath: /data/downloads
           livenessProbe:
             httpGet:
               path: /

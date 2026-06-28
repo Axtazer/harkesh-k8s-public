@@ -82,8 +82,8 @@ spec:
               cpu: 50m
               memory: 64Mi
             limits:
-              cpu: 200m
-              memory: 384Mi
+              cpu: 500m
+              memory: 512Mi
           volumeMounts:
             - name: dev-net
               mountPath: /dev/net
@@ -108,18 +108,18 @@ spec:
               memory: 256Mi
             limits:
               cpu: "1"
-              memory: 1Gi
+              memory: 2Gi
           volumeMounts:
             - name: config
               mountPath: /config
             - name: downloads
-              mountPath: /downloads
+              mountPath: /data/downloads
             - name: films
-              mountPath: /films
+              mountPath: /data/files/films
             - name: series
-              mountPath: /series
+              mountPath: /data/files/series
             - name: anime
-              mountPath: /anime
+              mountPath: /data/files/anime
           readinessProbe:
             httpGet:
               path: /

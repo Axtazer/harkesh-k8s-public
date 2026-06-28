@@ -42,12 +42,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
-            - name: series
-              mountPath: /data/files/series
-            - name: anime
-              mountPath: /data/files/anime
-            - name: downloads
-              mountPath: /data/downloads
+            - name: media
+              mountPath: /data
           livenessProbe:
             httpGet:
               path: /
@@ -65,18 +61,10 @@ spec:
           hostPath:
             path: /srv/appdata/sonarr
             type: DirectoryOrCreate
-        - name: series
+        - name: media
           hostPath:
-            path: /mnt/hdd/media/files/series
-            type: DirectoryOrCreate
-        - name: anime
-          hostPath:
-            path: /mnt/hdd/media/files/anime
-            type: DirectoryOrCreate
-        - name: downloads
-          hostPath:
-            path: /mnt/hdd/media/downloads
-            type: DirectoryOrCreate
+            path: /mnt/hdd/media
+            type: Directory
 ---
 apiVersion: v1
 kind: Service

@@ -112,14 +112,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
-            - name: downloads
-              mountPath: /data/downloads
-            - name: films
-              mountPath: /data/files/films
-            - name: series
-              mountPath: /data/files/series
-            - name: anime
-              mountPath: /data/files/anime
+            - name: media
+              mountPath: /data
           readinessProbe:
             httpGet:
               path: /
@@ -140,22 +134,10 @@ spec:
           hostPath:
             path: /srv/appdata/qbittorrent
             type: DirectoryOrCreate
-        - name: downloads
+        - name: media
           hostPath:
-            path: /mnt/hdd/media/downloads
-            type: DirectoryOrCreate
-        - name: films
-          hostPath:
-            path: /mnt/hdd/media/files/films
+            path: /mnt/hdd/media
             type: Directory
-        - name: series
-          hostPath:
-            path: /mnt/hdd/media/files/series
-            type: DirectoryOrCreate
-        - name: anime
-          hostPath:
-            path: /mnt/hdd/media/files/anime
-            type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service

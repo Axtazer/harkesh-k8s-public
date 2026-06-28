@@ -65,7 +65,7 @@ spec:
       volumes:
         - name: config
           hostPath:
-            path: /mnt/hdd/media/config/jellyseerr
+            path: /srv/appdata/jellyseerr
             type: DirectoryOrCreate
 ---
 apiVersion: v1

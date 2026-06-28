@@ -138,7 +138,7 @@ spec:
             type: Directory
         - name: config
           hostPath:
-            path: /mnt/hdd/media/config/qbittorrent
+            path: /srv/appdata/qbittorrent
             type: DirectoryOrCreate
         - name: downloads
           hostPath:

@@ -63,7 +63,7 @@ spec:
       volumes:
         - name: config
           hostPath:
-            path: /mnt/hdd/media/config/sonarr
+            path: /srv/appdata/sonarr
             type: DirectoryOrCreate
         - name: series
           hostPath:

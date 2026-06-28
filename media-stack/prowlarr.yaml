@@ -57,7 +57,7 @@ spec:
       volumes:
         - name: config
           hostPath:
-            path: /mnt/hdd/media/config/prowlarr
+            path: /srv/appdata/prowlarr
             type: DirectoryOrCreate
 ---
 apiVersion: v1

@@ -61,7 +61,7 @@ spec:
       volumes:
         - name: config
           hostPath:
-            path: /mnt/hdd/media/config/radarr
+            path: /srv/appdata/radarr
             type: DirectoryOrCreate
         - name: films
           hostPath:

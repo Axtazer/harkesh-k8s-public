@@ -21,9 +21,9 @@ spec:
     spec:
       containers:
         - name: jellyseerr
-          image: fallenbagel/jellyseerr:latest@sha256:4538137bc5af902dece165f2bf73776d9cf4eafb6dd714670724af8f3eb77764
+          image: seerr/seerr:v3.3.0@sha256:2892b14e960d946fb91573792505dcba011075638f27104360fd21aa157fa2bc
           ports:
-            - containerPort: 5055
+            - containerPort: 3000
               name: http
           env:
             - name: TZ
@@ -41,13 +41,13 @@ spec:
           livenessProbe:
             httpGet:
               path: /
-              port: 5055
+              port: 3000
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /
-              port: 5055
+              port: 3000
             initialDelaySeconds: 15
             periodSeconds: 10
       volumes:
@@ -68,7 +68,7 @@ spec:
   ports:
     - name: http
       port: 5055
-      targetPort: 5055
+      targetPort: 3000
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

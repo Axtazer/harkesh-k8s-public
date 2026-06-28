@@ -112,6 +112,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
+            - name: downloads
+              mountPath: /downloads
             - name: films
               mountPath: /films
             - name: series
@@ -137,6 +139,10 @@ spec:
         - name: config
           hostPath:
             path: /mnt/hdd/media/config/qbittorrent
+            type: DirectoryOrCreate
+        - name: downloads
+          hostPath:
+            path: /mnt/hdd/media/downloads
             type: DirectoryOrCreate
         - name: films
           hostPath:

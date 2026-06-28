@@ -46,6 +46,8 @@ spec:
               mountPath: /series
             - name: anime
               mountPath: /anime
+            - name: downloads
+              mountPath: /downloads
           livenessProbe:
             httpGet:
               path: /
@@ -70,6 +72,10 @@ spec:
         - name: anime
           hostPath:
             path: /mnt/hdd/media/files/anime
+            type: DirectoryOrCreate
+        - name: downloads
+          hostPath:
+            path: /mnt/hdd/media/downloads
             type: DirectoryOrCreate
 ---
 apiVersion: v1

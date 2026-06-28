@@ -338,7 +338,7 @@
         "lscr.io/linuxserver/sonarr",
         "lscr.io/linuxserver/qbittorrent",
         "ghcr.io/qdm12/gluetun",
-        "seerr/seerr"
+        "ghcr.io/seerr-team/seerr"
       ],
       "groupName": "media-stack",
       "automerge": true,

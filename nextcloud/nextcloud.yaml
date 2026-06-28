@@ -223,7 +223,7 @@ spec:
     spec:
       containers:
         - name: nextcloud
-          image: nextcloud:apache@sha256:4d4a6b5ed15a7eb4537538c848eb78833f53bed62f93e7d5af144f360cd53ff2
+          image: nextcloud:apache@sha256:5baecc7baf8991ca0d4b202c349c75c1c83129568284fd1ec6bb7e4417e0a5bb
           env:
             - name: MYSQL_DATABASE
               valueFrom:
@@ -346,7 +346,7 @@ spec:
         spec:
           containers:
             - name: nextcloud-cron
-              image: nextcloud:apache@sha256:4d4a6b5ed15a7eb4537538c848eb78833f53bed62f93e7d5af144f360cd53ff2
+              image: nextcloud:apache@sha256:5baecc7baf8991ca0d4b202c349c75c1c83129568284fd1ec6bb7e4417e0a5bb
               command:
                 - su
                 - -s

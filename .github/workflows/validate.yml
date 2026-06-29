@@ -48,7 +48,7 @@ jobs:
             -summary \
             -strict \
             -kubernetes-version 1.32.0 \
-            -skip "Ingress,OnePasswordItem,ServiceMonitor,Application,ApplicationSet,AppProject,HTTPRoute,Gateway,GatewayClass,ReferenceGrant" \
+            -skip "Ingress,OnePasswordItem,ServiceMonitor,Application,ApplicationSet,AppProject,HTTPRoute,Gateway,GatewayClass,ReferenceGrant,CiliumLoadBalancerIPPool,CiliumL2AnnouncementPolicy" \
             -ignore-filename-pattern ".*renovate.*" \
             -ignore-filename-pattern ".*helm-values.*" \
             -ignore-filename-pattern ".*/values\.yaml"

@@ -3,6 +3,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: shlink
+  labels:
+    shared-gateway-access: "true"
 ---
 apiVersion: onepassword.com/v1
 kind: OnePasswordItem
@@ -268,32 +270,3 @@ spec:
     - port: 80
       targetPort: 8080
   type: ClusterIP
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: shlink
-  namespace: shlink
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: go.axtazer.me
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: shlink
-                port:
-                  number: 80
-    - host: shlink.axtazer.me
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: shlink-web
-                port:
-                  number: 80

@@ -70,9 +70,26 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 - Kubernetes (kubeadm)
 - `helm`, `kubectl`, `kubectl krew`, `kubectl neat`
 
+## Architecture réseau
+
+```
+Cloudflare Edge
+    ↓
+cloudflare-tunnel-ingress-controller  (gère routes + DNS via Ingress K8s)
+    ↓  CF-Connecting-IP header (vraie IP client)
+Cilium Gateway API  (shared-gateway, kube-system)
+    ↓  HTTPRoute par app
+Services K8s
+```
+
+- **Cloudflare Tunnel** : géré en GitOps via `ingressClassName: cloudflare-tunnel`
+- **Cilium Gateway API** : remplace ingress-nginx, préserve les IPs clients nativement
+- **Cloudflare Access** : configuré uniquement dans le dashboard Zero Trust (pas de manifest K8s)
+- Chaque app a un fichier `routes.yaml` avec son `HTTPRoute` + `Ingress` cloudflare-tunnel
+
 ## Réinstallation complète
 
-### 1. Cilium (CNI)
+### 1. Cilium (CNI + Gateway API)
 
 ```bash
 helm repo add cilium https://helm.cilium.io
@@ -89,17 +106,16 @@ helm install cilium cilium/cilium --version 1.18.5 \
   --set hubble.tls.enabled=false \
   --set hubble.ui.enabled=true \
   --set hostFirewall.enabled=false \
-  --set hostFirewall.devices[0]=enp34s0
+  --set hostFirewall.devices[0]=enp34s0 \
+  --set gatewayAPI.enabled=true \
+  --set kubeProxyReplacement=true
 ```
 
-### 2. Ingress-nginx
+> ⚠️ Les CRDs Gateway API doivent être installées **avant** d'activer Cilium Gateway API.
+> ArgoCD s'en charge via l'app `gateway-api-crds` (sync-wave -1).
+> En bootstrap manuel : `kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml`
 
-```bash
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
-```
-
-### 3. 1Password Connect Server
+### 2. 1Password Connect Server
 
 Récupérer `1password-credentials.json` et le token depuis 1Password → Intégrations → Connect Servers.
 
@@ -175,7 +191,8 @@ Tous les secrets sont dans le vault `k8s-home` sur 1Password et injectés automa
 |-----------------------|-------------------------|---------------|
 | `nextcloud-db`        | `nextcloud-db-secret`   | `nextcloud`   |
 | `axtazia-bot`         | `axtazia-secrets`       | `bots`        |
-| `cloudflared`         | `cloudflared-token`     | `kube-system` |
+| `cloudflared`         | `cloudflared-token`     | `cloudflared` |
+| `cloudflare-tunnel-controller` | `cloudflare-tunnel-controller` | `cloudflare-tunnel-ingress-controller` |
 | `shlink`              | `shlink-secrets`        | `shlink`      |
 | `shlink-db`           | `shlink-db-secret`      | `shlink`      |
 | `axtazer-me`          | `axtazer-secrets`       | `axtazer-me`  |
@@ -238,7 +255,7 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | Axtazia Bot | `bots` | — (bot Discord/Twitch, pas de service exposé) | — | `latest` (digest pinné) | |
 | Warframe Bot | `bots` | — (bot Discord, pas de service exposé) | — | digest pinné (`90375df`) | |
 | PostgreSQL (warframe) | `bots` | interne uniquement | `http://warframe-postgres.bots.svc.cluster.local:5432` | `18-alpine` | |
-| Cloudflare Tunnel | `kube-system` | — | — | `latest` (digest pinné) | géré manuellement, hors ApplicationSet |
+| cloudflare-tunnel-ingress-controller | `cloudflare-tunnel-ingress-controller` | — | — | `0.0.23` | gère routes Cloudflare via Ingress K8s |
 | Delivre Où? | `etudes` | `https://delivreou.castaldo.fr` | — | — | **[retiré - 2026-06-14]** : aucun manifest correspondant dans le repo actuel |
 | n8n | `n8n` | `https://n8n.castaldo.fr` | `http://n8n.n8n.svc.cluster.local:5678` | `1.122.4` | nouveau |
 | PostgreSQL (n8n) | `n8n` | interne uniquement | `http://postgres.n8n.svc.cluster.local:5432` | `16` | nouveau |

@@ -1,0 +1,19 @@
+cloudflare:
+  secretRef:
+    name: cloudflare-tunnel-controller
+    apiTokenKey: apiToken
+    accountIdKey: accountId
+    tunnelNameKey: tunnelName
+
+ingressClass:
+  name: cloudflare-tunnel
+
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi

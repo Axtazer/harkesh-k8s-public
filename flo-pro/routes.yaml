@@ -1,0 +1,69 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: flo-pro
+  namespace: flo-pro
+spec:
+  parentRefs:
+    - name: shared-gateway
+      namespace: kube-system
+  hostnames:
+    - castaldo.fr
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: flo-pro
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: dev-flo-pro
+  namespace: flo-pro
+spec:
+  parentRefs:
+    - name: shared-gateway
+      namespace: kube-system
+  hostnames:
+    - dev-pro.castaldo.fr
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: dev-flo-pro
+          port: 81
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flo-pro-tunnel
+  namespace: flo-pro
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: castaldo.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: flo-pro
+                port:
+                  number: 80
+    - host: dev-pro.castaldo.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dev-flo-pro
+                port:
+                  number: 81

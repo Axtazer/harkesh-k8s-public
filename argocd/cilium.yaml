@@ -1,0 +1,29 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/Axtazer/harkesh-k8s
+      targetRevision: master
+      ref: values
+    - chart: cilium
+      repoURL: https://helm.cilium.io
+      targetRevision: 1.18.5
+      helm:
+        valueFiles:
+          - $values/infra/cilium/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

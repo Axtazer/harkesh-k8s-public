@@ -50,6 +50,30 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
+  name: repo-cilium
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: cilium
+  url: https://helm.cilium.io
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-strrl
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: strrl.dev
+  url: https://helm.strrl.dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
   name: repo-8gears
   namespace: argocd
   labels:

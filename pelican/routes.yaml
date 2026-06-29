@@ -1,0 +1,81 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: pelican-panel
+  namespace: pelican
+spec:
+  parentRefs:
+    - name: shared-gateway
+      namespace: kube-system
+  hostnames:
+    - panel.axtazer.me
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: pelican-panel-svc
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: wings
+  namespace: wings
+spec:
+  parentRefs:
+    - name: shared-gateway
+      namespace: kube-system
+  hostnames:
+    - node01.axtazer.me
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      timeouts:
+        request: 3600s
+        backendRequest: 3600s
+      backendRefs:
+        - name: wings-svc
+          port: 8443
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pelican-tunnel
+  namespace: pelican
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: panel.axtazer.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pelican-panel-svc
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wings-tunnel
+  namespace: wings
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: node01.axtazer.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wings-svc
+                port:
+                  number: 8443

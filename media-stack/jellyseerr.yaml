@@ -81,22 +81,3 @@ spec:
     - name: http
       port: 5055
       targetPort: 5055
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: jellyseerr
-  namespace: media
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: jellyseerr.axtazer.me
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: jellyseerr
-                port:
-                  number: 5055

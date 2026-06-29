@@ -1,0 +1,35 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudflare-tunnel-controller
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/Axtazer/harkesh-k8s
+      targetRevision: master
+      path: infra/cloudflare-tunnel-controller
+      directory:
+        exclude: "values.yaml"
+    - repoURL: https://github.com/Axtazer/harkesh-k8s
+      targetRevision: master
+      ref: values
+    - chart: cloudflare-tunnel-ingress-controller
+      repoURL: https://helm.strrl.dev
+      targetRevision: 0.0.23
+      helm:
+        valueFiles:
+          - $values/infra/cloudflare-tunnel-controller/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloudflare-tunnel-ingress-controller
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

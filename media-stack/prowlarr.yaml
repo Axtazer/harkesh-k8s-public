@@ -73,22 +73,3 @@ spec:
     - name: http
       port: 9696
       targetPort: 9696
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: prowlarr
-  namespace: media
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: prowlarr.axtazer.me
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: prowlarr
-                port:
-                  number: 9696

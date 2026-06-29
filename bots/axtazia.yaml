@@ -40,6 +40,9 @@ spec:
         - name: bot
           image: ghcr.io/axtazer/axtazia:latest@sha256:2fabcd27367b8ae4a60afd0059fe64804830fe488b9a8d86b8f569aadfe4a3ba
           imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: webhook
           envFrom:
             - secretRef:
                 name: axtazia-secrets
@@ -50,3 +53,17 @@ spec:
             limits:
               memory: "128Mi"
               cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: axtazia-bot
+  namespace: bots
+spec:
+  selector:
+    app: axtazia
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: webhook
+  type: ClusterIP

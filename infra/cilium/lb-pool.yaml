@@ -14,5 +14,5 @@ metadata:
 spec:
   interfaces:
     - enp34s0
-  externalIPs: true
   loadBalancerIPs: true
+  externalIPs: false

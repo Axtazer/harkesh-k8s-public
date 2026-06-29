@@ -2,7 +2,7 @@ cloudflare:
   secretRef:
     name: cloudflare-tunnel-controller
     apiTokenKey: apiToken
-    accountIdKey: accountId
+    accountIDKey: accountId
     tunnelNameKey: tunnelName
 
 ingressClass:

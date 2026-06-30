@@ -88,7 +88,7 @@ spec:
     spec:
       containers:
         - name: postgresql
-          image: postgres:16
+          image: postgres:16@sha256:fe03a7605299a34ddf5e4f285dff78c3d7190a576b3c6b46f2fcff69f4bffd54
           env:
             - name: POSTGRES_DB
               valueFrom:
@@ -153,7 +153,7 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7-alpine
+          image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
           command: [redis-server, --save, "60", "1", --loglevel, warning]
           resources:
             requests:
@@ -194,7 +194,7 @@ spec:
     spec:
       containers:
         - name: server
-          image: ghcr.io/goauthentik/server:2024.12.3
+          image: ghcr.io/goauthentik/server:2024.12.3@sha256:7464a70c0d84df0816858106116a3306a80359b4300aa656c3a5ab790a38c229
           args: [server]
           env:
             - name: AUTHENTIK_SECRET_KEY
@@ -277,7 +277,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: ghcr.io/goauthentik/server:2024.12.3
+          image: ghcr.io/goauthentik/server:2024.12.3@sha256:7464a70c0d84df0816858106116a3306a80359b4300aa656c3a5ab790a38c229
           args: [worker]
           env:
             - name: AUTHENTIK_SECRET_KEY

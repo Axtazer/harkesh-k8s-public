@@ -68,6 +68,9 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 │   ├── networkpolicy.yaml         # NetworkPolicies (default-deny + allow ciblés)
 │   ├── postgres.yaml              # StatefulSet PostgreSQL 16 + Service (DB n8n)
 │   └── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
+├── authentik/
+│   ├── authentik.yaml             # Authentik SSO (server + worker + PostgreSQL)
+│   └── routes.yaml                # Ingress cloudflare-tunnel → auth.axtazer.me
 ├── nextcloud/
 │   ├── nextcloud.yaml             # Nextcloud + MariaDB + Redis
 │   └── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
@@ -174,7 +177,7 @@ argocd app create root --repo git@github.com:Axtazer/harkesh-k8s.git --path argo
 
 `root` déploie ensuite automatiquement :
 - l'ApplicationSet `cluster-apps` (`argocd/applicationset.yaml`), qui crée une Application par dossier listé
-  (`axtazer-me`, `bots`, `flo-pro`, `jellyfin`, `media-stack`, `monitoring`, `nextcloud`, `pelican`, `shlink`) ;
+  (`authentik`, `axtazer-me`, `bots`, `flo-pro`, `jellyfin`, `media-stack`, `monitoring`, `nextcloud`, `pelican`, `shlink`) ;
 - les Applications Helm dédiées : `argocd/n8n.yaml`, `argocd/kube-prometheus-stack.yaml`, `argocd/dcgm-exporter.yaml`,
   `argocd/betterstack-collector.yaml`, `argocd/k8s-device-plugin.yaml` ;
 - les apps infra : `argocd/cilium.yaml`, `argocd/cilium-gateway.yaml`, `argocd/cloudflare-tunnel-controller.yaml`.
@@ -214,6 +217,7 @@ Tous les secrets sont dans le vault `k8s-home` sur 1Password et injectés automa
 | `n8n` | `n8n-secrets` | `n8n` |
 | `n8n-db` | `n8n-db-secrets` | `n8n` |
 | `mullvad-credentials` | `mullvad-credentials` | `media` |
+| `authentik` | `authentik-secret` | `authentik` |
 
 ## Secrets gérés manuellement
 
@@ -265,6 +269,8 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | n8n | `n8n` | `https://n8n.castaldo.fr` | `http://n8n.n8n.svc.cluster.local:5678` | `1.122.4+` | |
 | PostgreSQL (n8n) | `n8n` | interne uniquement | `http://postgres.n8n.svc.cluster.local:5432` | `16` | |
 | Axtazia Bot | `bots` | `https://axtazia.axtazer.me/webhook/twitch` | `http://axtazia-bot.bots.svc.cluster.local:3000` | `latest` (digest pinné) | Webhook Twitch EventSub sur port 3000 |
+| Authentik SSO | `authentik` | `https://auth.axtazer.me` | `http://authentik-server.authentik.svc.cluster.local:9000` | `2026.5.3` | Provider SSO OIDC pour les autres apps |
+| PostgreSQL (authentik) | `authentik` | interne uniquement | `http://postgresql.authentik.svc.cluster.local:5432` | `16` | |
 | cloudflare-tunnel-ingress-controller | `cloudflare-tunnel-ingress-controller` | — | — | `0.0.23` | Gère routes Cloudflare via Ingress K8s |
 | **[archivé 2026-06-27]** AlterTrack | — | `https://altertrack.castaldo.fr` | — | — | Manifests dans `_archived/altertrack/` |
 | **[archivé 2026-06-27]** PageBleue | — | `https://pagebleue.castaldo.fr` | — | — | Manifests dans `_archived/etudes/` |
@@ -282,7 +288,8 @@ Les images Docker sont suivies et mises à jour automatiquement via Renovate (co
 | `ghcr.io/axtazer/axtazia` | Automerge digest |
 | `ghcr.io/axtazer/flo-pro` | Automerge digest |
 | `ghcr.io/shlinkio/shlink` + `shlink-web-client` | Automerge digest/patch/minor |
-| `postgres` (shlink, n8n) | Major bloqué — migrations irréversibles |
+| `ghcr.io/goauthentik/server` | Automerge digest/patch/minor — major manuel (migrations BDD) |
+| `postgres` (shlink, n8n, authentik) | Major bloqué — migrations irréversibles |
 | `n8nio/n8n` | Automerge digest/patch/minor — major manuel |
 | `busybox` | Automerge digest/patch/minor |
 | `jellyfin/jellyfin` | Automerge digest/patch — minor/major manuel |

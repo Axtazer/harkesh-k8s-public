@@ -8,60 +8,76 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 /
 ├── _archived/                     # Apps hors service (manifests conservés pour référence)
 │   ├── altertrack/                #   AlterTrack (archivé 2026-06-27)
-│   ├── etudes/                    #   PageBleue (archivé 2026-06-27)
-│   └── cloudflare-tunnel-routes.md #  Routes tunnel supprimées
+│   └── etudes/                    #   PageBleue (archivé 2026-06-27)
 ├── argocd/                        # App-of-Apps : root Application + ApplicationSet
 │   ├── applicationset.yaml        # ApplicationSet cluster-apps (1 dossier = 1 Application)
 │   ├── appproject-default.yaml    # AppProject default (sourceRepos)
-│   ├── argocd-ingress.yaml        # Ingress ArgoCD
+│   ├── argocd-ingress.yaml        # Ingress + HTTPRoute ArgoCD
 │   ├── betterstack-collector.yaml # App Helm BetterStack collector
+│   ├── cilium.yaml                # App Helm Cilium CNI (sync-wave -2)
+│   ├── cilium-gateway.yaml        # App infra/cilium/ : Gateway + LB pool (sync-wave 0)
+│   ├── cloudflare-tunnel-controller.yaml # App Helm tunnel controller (sync-wave 1)
 │   ├── dcgm-exporter.yaml         # App Helm DCGM exporter (GPU)
 │   ├── helm-repositories.yaml     # Repos Helm déclarés (Secrets)
 │   ├── k8s-device-plugin.yaml     # App Helm NVIDIA device plugin (GPU)
 │   ├── kube-prometheus-stack.yaml # App Helm kube-prometheus-stack (Grafana/Prometheus)
 │   ├── n8n.yaml                   # App Helm n8n (8gears/n8n-helm-chart)
+│   ├── namespace.yaml             # Namespace argocd (label shared-gateway-access)
 │   └── root-app.yaml              # Bootstrap : root Application (lit argocd/)
 ├── axtazer-me/
-│   └── axtazer-me.yaml            # Site axtazer.me
+│   ├── axtazer-me.yaml            # Site axtazer.me
+│   └── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
 ├── bots/
-│   ├── axtazia.yaml               # Bot Discord/Twitch Axtazia
-│   ├── warframe-bot.yaml
-│   ├── warframe-knowledge-sync.yaml
-│   └── warframe-postgres.yaml
+│   ├── axtazia.yaml               # Bot Discord/Twitch Axtazia + Service webhook Twitch
+│   └── routes.yaml                # HTTPRoute webhook /webhook/twitch
 ├── flo-pro/
 │   ├── dev_flo-pro.yaml           # Dev Flo-Pro web
+│   ├── namespace.yaml             # Namespace flo-pro (label shared-gateway-access)
+│   ├── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
 │   └── web_flo-pro.yaml           # Flo-Pro web
 ├── infra/
-│   └── cloudflared/
-│       └── cloudflared.yaml       # Cloudflare Tunnel (kube-system, appliqué manuellement)
+│   ├── cilium/
+│   │   ├── gateway-api-crds.yaml  # App ArgoCD Gateway API CRDs (sync-wave -1)
+│   │   ├── gateway.yaml           # shared-gateway (kube-system, Cilium Gateway API)
+│   │   ├── lb-pool.yaml           # CiliumLoadBalancerIPPool 192.168.1.203/32 + L2 policy
+│   │   └── values.yaml            # Values Helm Cilium (gatewayAPI, l2announcements…)
+│   └── cloudflare-tunnel-controller/
+│       ├── README.md
+│       ├── secret.yaml            # OnePasswordItem cloudflare-tunnel-controller
+│       └── values.yaml            # Values Helm tunnel controller
 ├── jellyfin/
-│   └── jellyfin.yaml              # Jellyfin
+│   ├── jellyfin.yaml              # Jellyfin
+│   └── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
 ├── media-stack/                   # Stack *arr (namespace media)
 │   ├── secrets.yaml               #   OnePasswordItem mullvad-credentials
 │   ├── prowlarr.yaml              #   Indexers — prowlarr.axtazer.me
 │   ├── radarr.yaml                #   Films — radarr.axtazer.me
 │   ├── sonarr.yaml                #   Séries + anime — sonarr.axtazer.me
 │   ├── qbittorrent.yaml           #   Torrent + Gluetun VPN — qbit.axtazer.me
-│   └── jellyseerr.yaml            #   Demandes médias — jellyseerr.axtazer.me
+│   ├── jellyseerr.yaml            #   Seerr (fork Jellyseerr) — jellyseerr.axtazer.me
+│   └── routes.yaml                #   HTTPRoutes + Ingress cloudflare-tunnel (toute la stack)
 ├── monitoring/
 │   ├── betterstack-collector-onepassword.yaml
-│   └── kube-prometheus-stack-onepassword.yaml
+│   ├── kube-prometheus-stack-onepassword.yaml
+│   ├── namespace.yaml             # Namespace monitoring (label shared-gateway-access)
+│   └── routes.yaml                # HTTPRoute Grafana + Ingress cloudflare-tunnel
 ├── n8n/
 │   ├── 1password-secrets.yaml     # OnePasswordItem n8n-secrets + n8n-db-secrets
 │   ├── helm-values.yaml           # Values chart 8gears/n8n-helm-chart (n8n)
-│   ├── namespace.yaml
+│   ├── namespace.yaml             # Namespace n8n (label shared-gateway-access)
 │   ├── networkpolicy.yaml         # NetworkPolicies (default-deny + allow ciblés)
-│   └── postgres.yaml              # StatefulSet PostgreSQL 16 + Service (DB n8n)
+│   ├── postgres.yaml              # StatefulSet PostgreSQL 16 + Service (DB n8n)
+│   └── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
 ├── nextcloud/
-│   └── nextcloud.yaml             # Nextcloud + MariaDB + Redis
-├── ollama/
-│   └── ollama.yaml                # Ollama
+│   ├── nextcloud.yaml             # Nextcloud + MariaDB + Redis
+│   └── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
 ├── pelican/
-│   ├── panel.yaml                 # Pelican Panel + Services + Ingress
-│   ├── wings-ingress.yaml         # Ingress Wings
+│   ├── panel.yaml                 # Pelican Panel + Services
+│   ├── routes.yaml                # HTTPRoutes panel + wings + Ingress cloudflare-tunnel
 │   └── wings.yaml                 # Wings (daemon Pelican)
 ├── shlink/
-│   └── shlink.yaml                # Shlink URL shortener + Web client + PostgreSQL
+│   ├── shlink.yaml                # Shlink URL shortener + Web client + PostgreSQL
+│   └── routes.yaml                # HTTPRoutes go + shlink-web + Ingress cloudflare-tunnel
 └── renovate.json                  # Config Renovate (image tracking)
 ```
 
@@ -77,19 +93,26 @@ Cloudflare Edge
     ↓
 cloudflare-tunnel-ingress-controller  (gère routes + DNS via Ingress K8s)
     ↓  CF-Connecting-IP header (vraie IP client)
-Cilium Gateway API  (shared-gateway, kube-system)
+Cilium Gateway API  (shared-gateway @ 192.168.1.203, kube-system)
     ↓  HTTPRoute par app
 Services K8s
 ```
 
 - **Cloudflare Tunnel** : géré en GitOps via `ingressClassName: cloudflare-tunnel`
 - **Cilium Gateway API** : remplace ingress-nginx, préserve les IPs clients nativement
+- **L2 IPAM** : `CiliumLoadBalancerIPPool` + `CiliumL2AnnouncementPolicy` sur `enp34s0` → IP `192.168.1.203`
 - **Cloudflare Access** : configuré uniquement dans le dashboard Zero Trust (pas de manifest K8s)
 - Chaque app a un fichier `routes.yaml` avec son `HTTPRoute` + `Ingress` cloudflare-tunnel
 
 ## Réinstallation complète
 
-### 1. Cilium (CNI + Gateway API)
+### 1. Gateway API CRDs
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+```
+
+### 2. Cilium (CNI + Gateway API)
 
 ```bash
 helm repo add cilium https://helm.cilium.io
@@ -108,14 +131,11 @@ helm install cilium cilium/cilium --version 1.18.5 \
   --set hostFirewall.enabled=false \
   --set hostFirewall.devices[0]=enp34s0 \
   --set gatewayAPI.enabled=true \
-  --set kubeProxyReplacement=true
+  --set kubeProxyReplacement=true \
+  --set l2announcements.enabled=true
 ```
 
-> ⚠️ Les CRDs Gateway API doivent être installées **avant** d'activer Cilium Gateway API.
-> ArgoCD s'en charge via l'app `gateway-api-crds` (sync-wave -1).
-> En bootstrap manuel : `kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml`
-
-### 2. 1Password Connect Server
+### 3. 1Password Connect Server
 
 Récupérer `1password-credentials.json` et le token depuis 1Password → Intégrations → Connect Servers.
 
@@ -154,15 +174,10 @@ argocd app create root --repo git@github.com:Axtazer/harkesh-k8s.git --path argo
 
 `root` déploie ensuite automatiquement :
 - l'ApplicationSet `cluster-apps` (`argocd/applicationset.yaml`), qui crée une Application par dossier listé
-  (`axtazer-me`, `bots`, `flo-pro`, `jellyfin`, `media-stack`, `monitoring`, `nextcloud`, `ollama`, `pelican`, `shlink`) ;
+  (`axtazer-me`, `bots`, `flo-pro`, `jellyfin`, `media-stack`, `monitoring`, `nextcloud`, `pelican`, `shlink`) ;
 - les Applications Helm dédiées : `argocd/n8n.yaml`, `argocd/kube-prometheus-stack.yaml`, `argocd/dcgm-exporter.yaml`,
-  `argocd/betterstack-collector.yaml`, `argocd/k8s-device-plugin.yaml`.
-
-`infra/cloudflared` n'est **pas** couvert par l'ApplicationSet (hors-liste) et doit être créé manuellement :
-
-```bash
-argocd app create cloudflared --repo git@github.com:Axtazer/harkesh-k8s.git --path infra/cloudflared --dest-server https://kubernetes.default.svc --dest-namespace kube-system --sync-policy automated --auto-prune --self-heal --revision master --grpc-web
-```
+  `argocd/betterstack-collector.yaml`, `argocd/k8s-device-plugin.yaml` ;
+- les apps infra : `argocd/cilium.yaml`, `argocd/cilium-gateway.yaml`, `argocd/cloudflare-tunnel-controller.yaml`.
 
 ### 5. Monitoring (kube-prometheus-stack)
 
@@ -187,19 +202,18 @@ helm install dcgm-exporter gpu-helm-charts/dcgm-exporter \
 
 Tous les secrets sont dans le vault `k8s-home` sur 1Password et injectés automatiquement par le **1Password Connect Operator** via les `OnePasswordItem` définis dans chaque manifest.
 
-| Item 1Password        | Secret K8s              | Namespace     |
-|-----------------------|-------------------------|---------------|
-| `nextcloud-db`        | `nextcloud-db-secret`   | `nextcloud`   |
-| `axtazia-bot`         | `axtazia-secrets`       | `bots`        |
-| `cloudflared`         | `cloudflared-token`     | `cloudflared` |
+| Item 1Password | Secret K8s | Namespace |
+|---|---|---|
+| `nextcloud-db` | `nextcloud-db-secret` | `nextcloud` |
+| `axtazia-bot` | `axtazia-secrets` | `bots` |
 | `cloudflare-tunnel-controller` | `cloudflare-tunnel-controller` | `cloudflare-tunnel-ingress-controller` |
-| `shlink`              | `shlink-secrets`        | `shlink`      |
-| `shlink-db`           | `shlink-db-secret`      | `shlink`      |
-| `axtazer-me`          | `axtazer-secrets`       | `axtazer-me`  |
-| `grafana-admin`       | `grafana-admin`         | `monitoring`  |
-| `n8n`                 | `n8n-secrets`           | `n8n`         |
-| `n8n-db`              | `n8n-db-secrets`        | `n8n`         |
-| `mullvad-credentials` | `mullvad-credentials`   | `media`       |
+| `shlink` | `shlink-secrets` | `shlink` |
+| `shlink-db` | `shlink-db-secret` | `shlink` |
+| `axtazer-me` | `axtazer-secrets` | `axtazer-me` |
+| `grafana-admin` | `grafana-admin` | `monitoring` |
+| `n8n` | `n8n-secrets` | `n8n` |
+| `n8n-db` | `n8n-db-secrets` | `n8n` |
+| `mullvad-credentials` | `mullvad-credentials` | `media` |
 
 ## Secrets gérés manuellement
 
@@ -236,29 +250,24 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | Flo-pro | `flo-pro` | `https://castaldo.fr` | `http://flo-pro.flo-pro.svc.cluster.local:80` | `main` (digest pinné) | |
 | Dev Flo-pro | `flo-pro` | `https://dev-pro.castaldo.fr` | `http://dev-flo-pro.flo-pro.svc.cluster.local:81` | `dev` (digest pinné) | |
 | ArgoCD | `argocd` | `https://argocd.castaldo.fr` | — | — | |
-| Grafana | `monitoring` | `https://grafana.castaldo.fr` | — | — | config via Helm values kube-prometheus-stack, hors repo |
-| Pelican Panel | `pelican` | `https://panel.axtazer.me` | `http://pelican-panel-svc.pelican.svc.cluster.local:80` | `v1.0.0-beta34` | URL corrigée (anciennement `panel.castaldo.fr`) |
-| Wings | `wings` | `https://node01.axtazer.me` | `http://wings-svc.wings.svc.cluster.local:8443` | `latest` (digest pinné) | URL corrigée (anciennement `wings.castaldo.fr`, cf. commit c4e486e) |
+| Grafana | `monitoring` | `https://grafana.castaldo.fr` | — | — | config via Helm values kube-prometheus-stack |
+| Pelican Panel | `pelican` | `https://panel.axtazer.me` | `http://pelican-panel-svc.pelican.svc.cluster.local:80` | `v1.0.0-beta34` | |
+| Wings | `wings` | `https://node01.axtazer.me` | `http://wings-svc.wings.svc.cluster.local:8443` | `latest` (digest pinné) | |
 | Nextcloud | `nextcloud` | `https://nas.castaldo.fr` | `http://nextcloud.nextcloud.svc.cluster.local:80` | `apache` (digest pinné) | |
 | MariaDB (nextcloud) | `nextcloud` | interne uniquement | `http://mariadb.nextcloud.svc.cluster.local:3306` | `11` | |
 | Redis (nextcloud) | `nextcloud` | interne uniquement | `http://redis.nextcloud.svc.cluster.local:6379` | `alpine` | |
-| Jellyfin | `media` | `https://stream.axtazer.me` | `http://jellyfin.media.svc.cluster.local:8096` | `10.11.11` | |
+| Jellyfin | `media` | `https://stream.axtazer.me` | `http://jellyfin.media.svc.cluster.local:8096` | `10.11.11` | Proxies connus : `10.0.0.0/8` |
 | Prowlarr | `media` | `https://prowlarr.axtazer.me` | `http://prowlarr.media.svc.cluster.local:9696` | `latest` (linuxserver) | |
 | Radarr | `media` | `https://radarr.axtazer.me` | `http://radarr.media.svc.cluster.local:7878` | `latest` (linuxserver) | |
 | Sonarr | `media` | `https://sonarr.axtazer.me` | `http://sonarr.media.svc.cluster.local:8989` | `latest` (linuxserver) | |
 | qBittorrent + Gluetun | `media` | `https://qbit.axtazer.me` | `http://qbittorrent.media.svc.cluster.local:8080` | `latest` (linuxserver + gluetun) | VPN Mullvad WireGuard en sidecar |
-| Jellyseerr | `media` | `https://jellyseerr.axtazer.me` | `http://jellyseerr.media.svc.cluster.local:5055` | `latest` (fallenbagel) | |
+| Seerr | `media` | `https://jellyseerr.axtazer.me` | `http://jellyseerr.media.svc.cluster.local:5055` | `v3.3.0+` (seerr-team) | Fork Jellyseerr |
+| n8n | `n8n` | `https://n8n.castaldo.fr` | `http://n8n.n8n.svc.cluster.local:5678` | `1.122.4+` | |
+| PostgreSQL (n8n) | `n8n` | interne uniquement | `http://postgres.n8n.svc.cluster.local:5432` | `16` | |
+| Axtazia Bot | `bots` | `https://axtazia.axtazer.me/webhook/twitch` | `http://axtazia-bot.bots.svc.cluster.local:3000` | `latest` (digest pinné) | Webhook Twitch EventSub sur port 3000 |
+| cloudflare-tunnel-ingress-controller | `cloudflare-tunnel-ingress-controller` | — | — | `0.0.23` | Gère routes Cloudflare via Ingress K8s |
 | **[archivé 2026-06-27]** AlterTrack | — | `https://altertrack.castaldo.fr` | — | — | Manifests dans `_archived/altertrack/` |
 | **[archivé 2026-06-27]** PageBleue | — | `https://pagebleue.castaldo.fr` | — | — | Manifests dans `_archived/etudes/` |
-| **[archivé 2026-06-27]** Delivreou | — | `https://delivreou.castaldo.fr` | — | — | Jamais de manifest dans le repo |
-| Ollama | `ollama` | interne uniquement | `http://ollama.ollama.svc.cluster.local:11434` | `0.9.0` | |
-| Axtazia Bot | `bots` | — (bot Discord/Twitch, pas de service exposé) | — | `latest` (digest pinné) | |
-| Warframe Bot | `bots` | — (bot Discord, pas de service exposé) | — | digest pinné (`90375df`) | |
-| PostgreSQL (warframe) | `bots` | interne uniquement | `http://warframe-postgres.bots.svc.cluster.local:5432` | `18-alpine` | |
-| cloudflare-tunnel-ingress-controller | `cloudflare-tunnel-ingress-controller` | — | — | `0.0.23` | gère routes Cloudflare via Ingress K8s |
-| Delivre Où? | `etudes` | `https://delivreou.castaldo.fr` | — | — | **[retiré - 2026-06-14]** : aucun manifest correspondant dans le repo actuel |
-| n8n | `n8n` | `https://n8n.castaldo.fr` | `http://n8n.n8n.svc.cluster.local:5678` | `1.122.4` | nouveau |
-| PostgreSQL (n8n) | `n8n` | interne uniquement | `http://postgres.n8n.svc.cluster.local:5432` | `16` | nouveau |
 
 ## Renovate
 
@@ -268,14 +277,14 @@ Les images Docker sont suivies et mises à jour automatiquement via Renovate (co
 |---|---|
 | `nextcloud` + `mariadb` + `redis` | Manuel — review obligatoire |
 | `ghcr.io/pelican-dev/*` | Automerge digest/patch/minor |
-| `cloudflare/cloudflared` | Automerge digest/patch/minor |
-| `gcr.io/cadvisor/cadvisor` | **[retiré - 2026-06-14]** |
+| `cloudflare-tunnel-ingress-controller` (Helm) | Automerge patch/minor |
+| `gcr.io/cadvisor/cadvisor` | Automerge digest/patch |
 | `ghcr.io/axtazer/axtazia` | Automerge digest |
-| `ghcr.io/axtazer/delivreou` | **[archivé - 2026-06-27]** |
 | `ghcr.io/axtazer/flo-pro` | Automerge digest |
-| `ghcr.io/axtazer/axtazer-me` | Non suivi (package privé) |
-| `ghcr.io/shlinkio/shlink` | Automerge digest/patch/minor |
-| `ghcr.io/shlinkio/shlink-web-client` | Automerge digest/patch/minor |
+| `ghcr.io/shlinkio/shlink` + `shlink-web-client` | Automerge digest/patch/minor |
 | `postgres` (shlink, n8n) | Major bloqué — migrations irréversibles |
-| `n8nio/n8n` | Automerge digest/patch/minor — major manuel (review `Axtazer`) |
+| `n8nio/n8n` | Automerge digest/patch/minor — major manuel |
+| `busybox` | Automerge digest/patch/minor |
+| `jellyfin/jellyfin` | Automerge digest/patch — minor/major manuel |
+| `lscr.io/linuxserver/*` + `ghcr.io/qdm12/gluetun` + Seerr | Automerge digest/patch/minor |
 | Toutes les majors | Manuel — review obligatoire |

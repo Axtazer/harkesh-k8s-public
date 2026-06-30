@@ -23,6 +23,7 @@ spec:
     storage: 10Gi
   accessModes: [ReadWriteOnce]
   persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
   hostPath:
     path: /srv/appdata/authentik-db
 ---
@@ -33,6 +34,7 @@ metadata:
   namespace: authentik
 spec:
   accessModes: [ReadWriteOnce]
+  storageClassName: ""
   resources:
     requests:
       storage: 10Gi
@@ -48,6 +50,7 @@ spec:
     storage: 5Gi
   accessModes: [ReadWriteOnce]
   persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
   hostPath:
     path: /srv/appdata/authentik
 ---
@@ -58,6 +61,7 @@ metadata:
   namespace: authentik
 spec:
   accessModes: [ReadWriteOnce]
+  storageClassName: ""
   resources:
     requests:
       storage: 5Gi
@@ -132,6 +136,47 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: redis
+  namespace: authentik
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: redis
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: [redis-server, --save, "60", "1", --loglevel, warning]
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: authentik
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: authentik-server
   namespace: authentik
 spec:
@@ -176,6 +221,8 @@ spec:
                   key: postgresql-password
             - name: AUTHENTIK_POSTGRESQL__SSLMODE
               value: disable
+            - name: AUTHENTIK_REDIS__HOST
+              value: redis
             - name: TZ
               value: Europe/Paris
           ports:
@@ -257,6 +304,8 @@ spec:
                   key: postgresql-password
             - name: AUTHENTIK_POSTGRESQL__SSLMODE
               value: disable
+            - name: AUTHENTIK_REDIS__HOST
+              value: redis
             - name: TZ
               value: Europe/Paris
           volumeMounts:

@@ -11,6 +11,7 @@ spec:
         repoURL: https://github.com/Axtazer/harkesh-k8s
         revision: master
         directories:
+          - path: authentik
           - path: axtazer-me
           - path: bots
           - path: flo-pro

@@ -21,7 +21,8 @@
       "/shlink/.+\\.yaml$/",
       "/jellyfin/.+\\.yaml$/",
       "/media-stack/.+\\.yaml$/",
-      "/n8n/.+\\.yaml$/"
+      "/n8n/.+\\.yaml$/",
+      "/authentik/.+\\.yaml$/"
     ]
   },
   "customManagers": [
@@ -362,6 +363,41 @@
       "labels": [
         "media",
         "automerge"
+      ]
+    },
+    {
+      "description": "Authentik — digest/patch/minor automerge, major manuel (migrations BDD)",
+      "matchPackageNames": [
+        "ghcr.io/goauthentik/server"
+      ],
+      "groupName": "authentik",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "authentik",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Authentik major — toujours manuel (migrations BDD irréversibles)",
+      "matchPackageNames": [
+        "ghcr.io/goauthentik/server"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "authentik",
+        "manual-review"
       ]
     },
     {

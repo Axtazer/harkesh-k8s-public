@@ -136,47 +136,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: redis
-  namespace: authentik
-spec:
-  replicas: 1
-  revisionHistoryLimit: 1
-  selector:
-    matchLabels:
-      app: redis
-  strategy:
-    type: Recreate
-  template:
-    metadata:
-      labels:
-        app: redis
-    spec:
-      containers:
-        - name: redis
-          image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
-          command: [redis-server, --save, "60", "1", --loglevel, warning]
-          resources:
-            requests:
-              cpu: 20m
-              memory: 32Mi
-            limits:
-              memory: 128Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis
-  namespace: authentik
-spec:
-  selector:
-    app: redis
-  ports:
-    - port: 6379
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: authentik-server
   namespace: authentik
 spec:
@@ -194,7 +153,7 @@ spec:
     spec:
       containers:
         - name: server
-          image: ghcr.io/goauthentik/server:2024.12.3@sha256:7464a70c0d84df0816858106116a3306a80359b4300aa656c3a5ab790a38c229
+          image: ghcr.io/goauthentik/server:2026.5.3
           args: [server]
           env:
             - name: AUTHENTIK_SECRET_KEY
@@ -221,8 +180,6 @@ spec:
                   key: postgresql-password
             - name: AUTHENTIK_POSTGRESQL__SSLMODE
               value: disable
-            - name: AUTHENTIK_REDIS__HOST
-              value: redis
             - name: TZ
               value: Europe/Paris
           ports:
@@ -277,7 +234,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: ghcr.io/goauthentik/server:2024.12.3@sha256:7464a70c0d84df0816858106116a3306a80359b4300aa656c3a5ab790a38c229
+          image: ghcr.io/goauthentik/server:2026.5.3
           args: [worker]
           env:
             - name: AUTHENTIK_SECRET_KEY
@@ -304,8 +261,6 @@ spec:
                   key: postgresql-password
             - name: AUTHENTIK_POSTGRESQL__SSLMODE
               value: disable
-            - name: AUTHENTIK_REDIS__HOST
-              value: redis
             - name: TZ
               value: Europe/Paris
           volumeMounts:

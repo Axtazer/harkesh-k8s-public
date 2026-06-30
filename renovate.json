@@ -368,8 +368,7 @@
     {
       "description": "Authentik stack — digest/patch/minor automerge, major manuel (migrations BDD)",
       "matchPackageNames": [
-        "ghcr.io/goauthentik/server",
-        "redis"
+        "ghcr.io/goauthentik/server"
       ],
       "groupName": "authentik",
       "automerge": true,
@@ -387,8 +386,7 @@
     {
       "description": "Authentik major — toujours manuel (migrations BDD irréversibles)",
       "matchPackageNames": [
-        "ghcr.io/goauthentik/server",
-        "redis"
+        "ghcr.io/goauthentik/server"
       ],
       "matchUpdateTypes": [
         "major"

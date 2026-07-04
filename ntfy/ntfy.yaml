@@ -51,6 +51,7 @@ data:
     auth-default-access: "deny-all"
     enable-signup: false
     enable-login: true
+    upstream-base-url: "https://ntfy.sh"
 ---
 apiVersion: apps/v1
 kind: Deployment

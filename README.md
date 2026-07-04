@@ -74,6 +74,9 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 ├── nextcloud/
 │   ├── nextcloud.yaml             # Nextcloud + MariaDB + Redis
 │   └── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
+├── ntfy/
+│   ├── ntfy.yaml                   # ntfy (serveur notifications push) + PV/PVC persistant
+│   └── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
 ├── pelican/
 │   ├── panel.yaml                 # Pelican Panel + Services
 │   ├── routes.yaml                # HTTPRoutes panel + wings + Ingress cloudflare-tunnel
@@ -177,7 +180,7 @@ argocd app create root --repo git@github.com:Axtazer/harkesh-k8s.git --path argo
 
 `root` déploie ensuite automatiquement :
 - l'ApplicationSet `cluster-apps` (`argocd/applicationset.yaml`), qui crée une Application par dossier listé
-  (`authentik`, `axtazer-me`, `bots`, `flo-pro`, `jellyfin`, `media-stack`, `monitoring`, `nextcloud`, `pelican`, `shlink`) ;
+  (`authentik`, `axtazer-me`, `bots`, `flo-pro`, `jellyfin`, `media-stack`, `monitoring`, `nextcloud`, `ntfy`, `pelican`, `shlink`) ;
 - les Applications Helm dédiées : `argocd/n8n.yaml`, `argocd/kube-prometheus-stack.yaml`, `argocd/dcgm-exporter.yaml`,
   `argocd/betterstack-collector.yaml`, `argocd/k8s-device-plugin.yaml` ;
 - les apps infra : `argocd/cilium.yaml`, `argocd/cilium-gateway.yaml`, `argocd/cloudflare-tunnel-controller.yaml`.
@@ -271,6 +274,7 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | Axtazia Bot | `bots` | `https://axtazia.axtazer.me/webhook/twitch` | `http://axtazia-bot.bots.svc.cluster.local:3000` | `latest` (digest pinné) | Webhook Twitch EventSub sur port 3000 |
 | Authentik SSO | `authentik` | `https://auth.axtazer.me` | `http://authentik-server.authentik.svc.cluster.local:9000` | `2026.5.3` | Provider SSO OIDC pour les autres apps |
 | PostgreSQL (authentik) | `authentik` | interne uniquement | `http://postgresql.authentik.svc.cluster.local:5432` | `16` | |
+| ntfy | `ntfy` | `https://ntfy.axtazer.me` | `http://ntfy.ntfy.svc.cluster.local:80` | `v2.25.0` (digest pinné) | Auth activée, `deny-all` par défaut |
 | cloudflare-tunnel-ingress-controller | `cloudflare-tunnel-ingress-controller` | — | — | `0.0.23` | Gère routes Cloudflare via Ingress K8s |
 | **[archivé 2026-06-27]** AlterTrack | — | `https://altertrack.castaldo.fr` | — | — | Manifests dans `_archived/altertrack/` |
 | **[archivé 2026-06-27]** PageBleue | — | `https://pagebleue.castaldo.fr` | — | — | Manifests dans `_archived/etudes/` |
@@ -289,6 +293,7 @@ Les images Docker sont suivies et mises à jour automatiquement via Renovate (co
 | `ghcr.io/axtazer/flo-pro` | Automerge digest |
 | `ghcr.io/shlinkio/shlink` + `shlink-web-client` | Automerge digest/patch/minor |
 | `ghcr.io/goauthentik/server` | Automerge digest/patch/minor — major manuel (migrations BDD) |
+| `binwiederhier/ntfy` | Automerge digest/patch/minor — major manuel |
 | `postgres` (shlink, n8n, authentik) | Major bloqué — migrations irréversibles |
 | `n8nio/n8n` | Automerge digest/patch/minor — major manuel |
 | `busybox` | Automerge digest/patch/minor |

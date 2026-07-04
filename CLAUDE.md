@@ -38,6 +38,7 @@ harkesh-k8s/
 ├── monitoring/          # cAdvisor + kube-prometheus-stack
 ├── n8n/                 # n8n automation
 ├── nextcloud/           # Nextcloud stack
+├── ntfy/                # ntfy (notifications push)
 ├── ollama/              # Ollama LLM
 ├── pelican/             # Panel Pelican + Wings
 ├── shlink/              # Raccourcisseur d'URL
@@ -85,3 +86,5 @@ Déclenché par `repository_dispatch` (type `image-updated`) depuis les pipeline
 - Master protégé — toujours passer par une PR + status check `validate`
 - `imagePullSecrets: ghcr-secret` à créer manuellement après réinstall
 - Secrets via `OnePasswordItem` (vault `k8s-home`)
+- Ajout d'une app : toujours mettre à jour `renovate.json` (pattern `managerFilePatterns` + règle automerge/major) et `README.md` (structure, table Services, table Renovate) dans la même PR
+- Suppression d'une app : ne jamais supprimer les manifests — les déplacer dans `_archived/<app>/`, retirer l'entrée de `argocd/applicationset.yaml`, et marquer la ligne correspondante du README comme `**[archivé YYYY-MM-DD]**` (voir AlterTrack/PageBleue)

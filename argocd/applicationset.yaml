@@ -19,6 +19,7 @@ spec:
           - path: media-stack
           - path: monitoring
           - path: nextcloud
+          - path: ntfy
           - path: pelican
           - path: shlink
   template:

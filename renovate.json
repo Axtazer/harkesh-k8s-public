@@ -22,7 +22,8 @@
       "/jellyfin/.+\\.yaml$/",
       "/media-stack/.+\\.yaml$/",
       "/n8n/.+\\.yaml$/",
-      "/authentik/.+\\.yaml$/"
+      "/authentik/.+\\.yaml$/",
+      "/ntfy/.+\\.yaml$/"
     ]
   },
   "customManagers": [
@@ -398,6 +399,24 @@
       "labels": [
         "authentik",
         "manual-review"
+      ]
+    },
+    {
+      "description": "ntfy — digest/patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "binwiederhier/ntfy"
+      ],
+      "groupName": "ntfy",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "ntfy",
+        "automerge"
       ]
     },
     {

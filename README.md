@@ -8,12 +8,12 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 /
 ├── _archived/                     # Apps hors service (manifests conservés pour référence)
 │   ├── altertrack/                #   AlterTrack (archivé 2026-06-27)
+│   ├── betterstack-collector/     #   BetterStack collector (archivé 2026-07-05)
 │   └── etudes/                    #   PageBleue (archivé 2026-06-27)
 ├── argocd/                        # App-of-Apps : root Application + ApplicationSet
 │   ├── applicationset.yaml        # ApplicationSet cluster-apps (1 dossier = 1 Application)
 │   ├── appproject-default.yaml    # AppProject default (sourceRepos)
 │   ├── argocd-ingress.yaml        # Ingress + HTTPRoute ArgoCD
-│   ├── betterstack-collector.yaml # App Helm BetterStack collector
 │   ├── cilium.yaml                # App Helm Cilium CNI (sync-wave -2)
 │   ├── cilium-gateway.yaml        # App infra/cilium/ : Gateway + LB pool (sync-wave 0)
 │   ├── cloudflare-tunnel-controller.yaml # App Helm tunnel controller (sync-wave 1)
@@ -57,7 +57,7 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 │   ├── jellyseerr.yaml            #   Seerr (fork Jellyseerr) — jellyseerr.axtazer.me
 │   └── routes.yaml                #   HTTPRoutes + Ingress cloudflare-tunnel (toute la stack)
 ├── monitoring/
-│   ├── betterstack-collector-onepassword.yaml
+│   ├── ENDPOINTS.md                # Endpoints à monitorer (externe)
 │   ├── kube-prometheus-stack-onepassword.yaml
 │   ├── namespace.yaml             # Namespace monitoring (label shared-gateway-access)
 │   └── routes.yaml                # HTTPRoute Grafana + Ingress cloudflare-tunnel
@@ -182,7 +182,7 @@ argocd app create root --repo git@github.com:Axtazer/harkesh-k8s.git --path argo
 - l'ApplicationSet `cluster-apps` (`argocd/applicationset.yaml`), qui crée une Application par dossier listé
   (`authentik`, `axtazer-me`, `bots`, `flo-pro`, `jellyfin`, `media-stack`, `monitoring`, `nextcloud`, `ntfy`, `pelican`, `shlink`) ;
 - les Applications Helm dédiées : `argocd/n8n.yaml`, `argocd/kube-prometheus-stack.yaml`, `argocd/dcgm-exporter.yaml`,
-  `argocd/betterstack-collector.yaml`, `argocd/k8s-device-plugin.yaml` ;
+  `argocd/k8s-device-plugin.yaml` ;
 - les apps infra : `argocd/cilium.yaml`, `argocd/cilium-gateway.yaml`, `argocd/cloudflare-tunnel-controller.yaml`.
 
 ### 5. Monitoring (kube-prometheus-stack)
@@ -278,6 +278,7 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | cloudflare-tunnel-ingress-controller | `cloudflare-tunnel-ingress-controller` | — | — | `0.0.23` | Gère routes Cloudflare via Ingress K8s |
 | **[archivé 2026-06-27]** AlterTrack | — | `https://altertrack.castaldo.fr` | — | — | Manifests dans `_archived/altertrack/` |
 | **[archivé 2026-06-27]** PageBleue | — | `https://pagebleue.castaldo.fr` | — | — | Manifests dans `_archived/etudes/` |
+| **[archivé 2026-07-05]** BetterStack collector | — | — | — | — | Manifests dans `_archived/betterstack-collector/` |
 
 ## Renovate
 

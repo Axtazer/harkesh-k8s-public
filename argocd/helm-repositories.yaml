@@ -38,18 +38,6 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: repo-betterstack
-  namespace: argocd
-  labels:
-    argocd.argoproj.io/secret-type: repository
-stringData:
-  type: helm
-  name: betterstack
-  url: https://betterstackhq.github.io/collector-helm-chart
----
-apiVersion: v1
-kind: Secret
-metadata:
   name: repo-cilium
   namespace: argocd
   labels:

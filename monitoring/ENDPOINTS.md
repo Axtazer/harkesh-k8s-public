@@ -1,6 +1,6 @@
-# Endpoints à monitorer — Better Stack
+# Endpoints à monitorer
 
-Liste des endpoints publics exposés via Cloudflare Tunnel et de leurs health checks internes, pour configuration des monitors Better Stack.
+Liste des endpoints publics exposés via Cloudflare Tunnel et de leurs health checks internes, pour configuration des monitors externes.
 
 ## Critiques
 

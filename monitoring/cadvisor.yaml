@@ -28,9 +28,9 @@ spec:
             - containerPort: 8080
               name: http
           args:
-            - --housekeeping_interval=30s
-            - --max_housekeeping_interval=35s
-            - --disable_metrics=sched,tcp,udp
+            - --housekeeping_interval=60s
+            - --max_housekeeping_interval=65s
+            - --disable_metrics=sched,tcp,udp,percpu,referenced_memory,cpu_topology,resctrl,hugetlb
             - --docker_only=true
           volumeMounts:
             - name: rootfs

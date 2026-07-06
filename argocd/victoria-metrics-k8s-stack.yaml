@@ -14,9 +14,6 @@ spec:
       targetRevision: 0.85.10
       helm:
         values: |
-          # PR1 (coexistence) : grafana/kube-state-metrics/node-exporter restent désactivés
-          # tant que kube-prometheus-stack fournit encore ces composants.
-          # PR2 les activera ici et les désactivera dans kube-prometheus-stack.
           vmsingle:
             enabled: true
             spec:
@@ -37,16 +34,86 @@ spec:
             enabled: true
             operator:
               disable_prometheus_converter: false
+          # Datasource par defaut (VictoriaMetrics, API compatible Prometheus) nommee/uid "prometheus"
+          # pour matcher les references de datasource par nom "prometheus" codees en dur dans les
+          # dashboards custom importes (cf. monitoring/grafana-dashboards.yaml).
+          defaultDatasources:
+            victoriametrics:
+              datasources:
+                - name: prometheus
+                  type: prometheus
+                  access: proxy
+                  uid: prometheus
+                  isDefault: true
           grafana:
-            enabled: false
+            enabled: true
+            admin:
+              existingSecret: grafana-admin
+              userKey: username
+              passwordKey: password
+            plugins:
+              - yesoreyeram-infinity-datasource
+            envValueFrom:
+              CLOUDFLARE_API_TOKEN:
+                secretKeyRef:
+                  name: cloudflare-analytics-token
+                  key: token
+            grafana.ini:
+              analytics:
+                check_for_updates: true
+              log:
+                mode: console
+              paths:
+                data: /var/lib/grafana/
+                logs: /var/log/grafana
+                plugins: /var/lib/grafana/plugins
+                provisioning: /etc/grafana/provisioning
+              server:
+                domain: grafana.castaldo.fr
+                root_url: https://grafana.castaldo.fr
+                serve_from_sub_path: false
+              unified_storage:
+                index_path: /var/lib/grafana-search/bleve
           alertmanager:
             enabled: false
           kube-state-metrics:
-            enabled: false
+            enabled: true
           prometheus-node-exporter:
-            enabled: false
+            enabled: true
           vmalert:
             enabled: false
+          # kubeApiServer/kubeEtcd restent actifs par defaut (alignes sur kube-prometheus-stack) ;
+          # kubelet/coreDns/kubeControllerManager/kubeScheduler gardent aussi les defauts du chart
+          # (actifs), kubeProxy reste desactive (pas de kube-proxy, remplace par Cilium).
+          kubeApiServer:
+            enabled: true
+            vmScrape:
+              spec:
+                endpoints:
+                  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+                    port: https
+                    scheme: https
+                    tlsConfig:
+                      caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                      serverName: kubernetes
+                    metricRelabelConfigs:
+                      - action: drop
+                        source_labels: [__name__]
+                        regex: apiserver_(request_body_size|request_duration_seconds|request_sli_duration_seconds|response_sizes|watch_list_duration_seconds|watch_cache_read_wait_seconds)_bucket
+          kubeEtcd:
+            enabled: true
+            vmScrape:
+              spec:
+                endpoints:
+                  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+                    port: http-metrics
+                    scheme: https
+                    tlsConfig:
+                      caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                    metricRelabelConfigs:
+                      - action: drop
+                        source_labels: [__name__]
+                        regex: etcd_request_duration_seconds_bucket
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

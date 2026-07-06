@@ -20,8 +20,7 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 │   ├── dcgm-exporter.yaml         # App Helm DCGM exporter (GPU)
 │   ├── helm-repositories.yaml     # Repos Helm déclarés (Secrets)
 │   ├── k8s-device-plugin.yaml     # App Helm NVIDIA device plugin (GPU)
-│   ├── kube-prometheus-stack.yaml # App Helm kube-prometheus-stack (Grafana/Prometheus) — en cours de migration vers VictoriaMetrics
-│   ├── victoria-metrics-k8s-stack.yaml # App Helm victoria-metrics-k8s-stack (coexistence, cf. section Monitoring)
+│   ├── victoria-metrics-k8s-stack.yaml # App Helm victoria-metrics-k8s-stack (Grafana/VictoriaMetrics)
 │   ├── n8n.yaml                   # App Helm n8n (8gears/n8n-helm-chart)
 │   ├── namespace.yaml             # Namespace argocd (label shared-gateway-access)
 │   └── root-app.yaml              # Bootstrap : root Application (lit argocd/)
@@ -59,7 +58,11 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 │   └── routes.yaml                #   HTTPRoutes + Ingress cloudflare-tunnel (toute la stack)
 ├── monitoring/
 │   ├── ENDPOINTS.md                # Endpoints à monitorer (externe)
-│   ├── kube-prometheus-stack-onepassword.yaml
+│   ├── VMCTL-MIGRATION.md          # Procédure migration historique Prometheus → vmsingle (vmctl)
+│   ├── cadvisor.yaml               # DaemonSet cAdvisor + Service + ServiceMonitor
+│   ├── grafana-onepassword.yaml    # OnePasswordItem grafana-admin + cloudflare-analytics-token
+│   ├── grafana-dashboards.yaml     # ConfigMaps dashboards custom (Base, Docker (cAdvisor), Docker Containers, Cloudflare DNS Analytics)
+│   ├── grafana-datasource-cloudflare.yaml # ConfigMap datasource Grafana yesoreyeram-infinity (Cloudflare GraphQL API)
 │   ├── namespace.yaml             # Namespace monitoring (label shared-gateway-access)
 │   └── routes.yaml                # HTTPRoute Grafana + Ingress cloudflare-tunnel
 ├── n8n/
@@ -182,21 +185,13 @@ argocd app create root --repo git@github.com:Axtazer/harkesh-k8s.git --path argo
 `root` déploie ensuite automatiquement :
 - l'ApplicationSet `cluster-apps` (`argocd/applicationset.yaml`), qui crée une Application par dossier listé
   (`authentik`, `axtazer-me`, `bots`, `flo-pro`, `jellyfin`, `media-stack`, `monitoring`, `nextcloud`, `ntfy`, `pelican`, `shlink`) ;
-- les Applications Helm dédiées : `argocd/n8n.yaml`, `argocd/kube-prometheus-stack.yaml`, `argocd/victoria-metrics-k8s-stack.yaml`,
+- les Applications Helm dédiées : `argocd/n8n.yaml`, `argocd/victoria-metrics-k8s-stack.yaml`,
   `argocd/dcgm-exporter.yaml`, `argocd/k8s-device-plugin.yaml` ;
 - les apps infra : `argocd/cilium.yaml`, `argocd/cilium-gateway.yaml`, `argocd/cloudflare-tunnel-controller.yaml`.
 
-### 5. Monitoring (migration kube-prometheus-stack → victoria-metrics-k8s-stack)
-
-> Migration en cours (réduction RAM ~1.4 Go → ~300 Mo). Les deux stacks coexistent temporairement :
-> Grafana/kube-state-metrics/node-exporter restent uniquement sur kube-prometheus-stack jusqu'à la bascule finale
-> (suppression de kube-prometheus-stack une fois l'historique Prometheus migré via `vmctl`).
+### 5. Monitoring (victoria-metrics-k8s-stack)
 
 ```bash
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm install prometheus prometheus-community/kube-prometheus-stack \
-  -n monitoring --create-namespace
-
 helm repo add victoria-metrics https://victoriametrics.github.io/helm-charts
 helm install victoria-metrics-k8s-stack victoria-metrics/victoria-metrics-k8s-stack \
   -n monitoring --create-namespace
@@ -226,6 +221,7 @@ Tous les secrets sont dans le vault `k8s-home` sur 1Password et injectés automa
 | `shlink-db` | `shlink-db-secret` | `shlink` |
 | `axtazer-me` | `axtazer-secrets` | `axtazer-me` |
 | `grafana-admin` | `grafana-admin` | `monitoring` |
+| `cloudflare-analytics-token` | `cloudflare-analytics-token` | `monitoring` |
 | `n8n` | `n8n-secrets` | `n8n` |
 | `n8n-db` | `n8n-db-secrets` | `n8n` |
 | `mullvad-credentials` | `mullvad-credentials` | `media` |
@@ -266,7 +262,7 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | Flo-pro | `flo-pro` | `https://castaldo.fr` | `http://flo-pro.flo-pro.svc.cluster.local:80` | `main` (digest pinné) | |
 | Dev Flo-pro | `flo-pro` | `https://dev-pro.castaldo.fr` | `http://dev-flo-pro.flo-pro.svc.cluster.local:81` | `dev` (digest pinné) | |
 | ArgoCD | `argocd` | `https://argocd.castaldo.fr` | — | — | |
-| Grafana | `monitoring` | `https://grafana.castaldo.fr` | — | — | config via Helm values kube-prometheus-stack |
+| Grafana | `monitoring` | `https://grafana.castaldo.fr` | — | — | config via Helm values victoria-metrics-k8s-stack |
 | Pelican Panel | `pelican` | `https://panel.axtazer.me` | `http://pelican-panel-svc.pelican.svc.cluster.local:80` | `v1.0.0-beta34` | |
 | Wings | `wings` | `https://node01.axtazer.me` | `http://wings-svc.wings.svc.cluster.local:8443` | `latest` (digest pinné) | |
 | Nextcloud | `nextcloud` | `https://nas.castaldo.fr` | `http://nextcloud.nextcloud.svc.cluster.local:80` | `apache` (digest pinné) | |

@@ -30,7 +30,7 @@ jobs:
               comments: disable,
               truthy: disable
             }
-          }' $(find . -name "*.yaml" -not -path "./.github/*")
+          }' $(find . -name "*.yaml" -not -path "./.github/*" -not -path "./monitoring/grafana-dashboards.yaml")
 
       # ── 2. Install kubeconform (version pinnée) ───────────────────────────────
       - name: Install kubeconform

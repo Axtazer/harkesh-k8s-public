@@ -1,0 +1,5723 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-base
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  base.json: |
+    {
+      "uid": "axjxqwx",
+      "title": "Base",
+      "description": "",
+      "tags": [],
+      "editable": true,
+      "graphTooltip": 0,
+      "schemaVersion": 39,
+      "version": 1,
+      "timezone": "browser",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "refresh": "",
+      "panels": [
+        {
+          "id": 1000,
+          "type": "row",
+          "title": "Basics",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "panels": []
+        },
+        {
+          "id": 3,
+          "title": "CPU Utilisation",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 100,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "((\n  instance:node_cpu_utilisation:rate5m{job=\"node-exporter\", cluster=~\"$cluster\"}\n  *\n  instance:node_num_cpu:sum{job=\"node-exporter\", cluster=~\"$cluster\"}\n) != 0 )\n/ scalar(sum(instance:node_num_cpu:sum{job=\"node-exporter\", cluster=~\"$cluster\"}))\n",
+              "legendFormat": "{{ instance }}"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 1,
+            "w": 12,
+            "h": 7
+          }
+        },
+        {
+          "id": 4,
+          "title": "Memory Utilisation",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 100,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "(\n  instance:node_memory_utilisation:ratio{job=\"node-exporter\", cluster=~\"$cluster\"}\n  / scalar(count(instance:node_memory_utilisation:ratio{job=\"node-exporter\", cluster=~\"$cluster\"}))\n) != 0\n",
+              "legendFormat": "{{ instance }}"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 1,
+            "w": 12,
+            "h": 7
+          }
+        },
+        {
+          "id": 5,
+          "title": "Network Utilisation (Bytes Receive/Transmit)",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 100,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/Transmit/"
+                },
+                "properties": [
+                  {
+                    "id": "custom.transform",
+                    "value": "negative-Y"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "instance:node_network_receive_bytes_excluding_lo:rate5m{job=\"node-exporter\", cluster=~\"$cluster\"} != 0",
+              "legendFormat": "{{ instance }} Receive"
+            },
+            {
+              "refId": "B",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "instance:node_network_transmit_bytes_excluding_lo:rate5m{job=\"node-exporter\", cluster=~\"$cluster\"} != 0",
+              "legendFormat": "{{ instance }} Transmit"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 7,
+            "y": 8,
+            "w": 12,
+            "h": 7
+          }
+        },
+        {
+          "id": 1001,
+          "type": "row",
+          "title": "Memory",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 15
+          },
+          "panels": []
+        },
+        {
+          "id": 6,
+          "title": "Memory Usage",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "(\n  node_memory_MemTotal_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\"}\n-\n  node_memory_MemFree_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\"}\n-\n  node_memory_Buffers_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\"}\n-\n  node_memory_Cached_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\"}\n)\n",
+              "legendFormat": "memory used"
+            },
+            {
+              "refId": "B",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "node_memory_Buffers_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\"}",
+              "legendFormat": "memory buffers"
+            },
+            {
+              "refId": "C",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "node_memory_Cached_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\"}",
+              "legendFormat": "memory cached"
+            },
+            {
+              "refId": "D",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "node_memory_MemFree_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\"}",
+              "legendFormat": "memory free"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 16,
+            "w": 18,
+            "h": 7
+          }
+        },
+        {
+          "id": 7,
+          "title": "Memory Usage",
+          "description": "",
+          "type": "gauge",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "rgba(50, 172, 45, 0.97)"
+                  },
+                  {
+                    "value": 80,
+                    "color": "rgba(237, 129, 40, 0.89)"
+                  },
+                  {
+                    "value": 90,
+                    "color": "rgba(245, 54, 54, 0.9)"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "barShape": "flat",
+            "barWidthFactor": 0.5,
+            "effects": {
+              "barGlow": false,
+              "centerGlow": false,
+              "gradient": true
+            },
+            "endpointMarker": "point",
+            "minVizHeight": 75,
+            "minVizWidth": 75,
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "segmentCount": 1,
+            "segmentSpacing": 0.3,
+            "shape": "gauge",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true,
+            "sizing": "auto",
+            "sparkline": true,
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "100 -\n(\n  avg(node_memory_MemAvailable_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\"}) /\n  avg(node_memory_MemTotal_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\"})\n* 100\n)\n"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 18,
+            "y": 16,
+            "w": 6,
+            "h": 7
+          }
+        },
+        {
+          "id": 1002,
+          "type": "row",
+          "title": "Disk",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 23
+          },
+          "panels": []
+        },
+        {
+          "id": 8,
+          "title": "Disk I/O",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/ read| written/"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "Bps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/ io time/"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percentunit"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(node_disk_read_bytes_total{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\", device=~\"(/dev/)?(mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|md.+|dasd.+)\"}[$__rate_interval])",
+              "legendFormat": "{{device}} read"
+            },
+            {
+              "refId": "B",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(node_disk_written_bytes_total{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\", device=~\"(/dev/)?(mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|md.+|dasd.+)\"}[$__rate_interval])",
+              "legendFormat": "{{device}} written"
+            },
+            {
+              "refId": "C",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(node_disk_io_time_seconds_total{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\", device=~\"(/dev/)?(mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|md.+|dasd.+)\"}[$__rate_interval])",
+              "legendFormat": "{{device}} io time"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 24,
+            "w": 12,
+            "h": 7
+          }
+        },
+        {
+          "id": 9,
+          "title": "Disk Space Usage",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "decbytes",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 0.8,
+                    "color": "yellow"
+                  },
+                  {
+                    "value": 0.9,
+                    "color": "red"
+                  }
+                ]
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Mounted on"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 260
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Size"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 93
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Used"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 72
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Available"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 88
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Used, %"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percentunit"
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "gauge"
+                    }
+                  },
+                  {
+                    "id": "max",
+                    "value": 1
+                  },
+                  {
+                    "id": "min",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": true
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "max by (mountpoint) (node_filesystem_size_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\", fstype!=\"\", mountpoint!=\"\"})\n",
+              "legendFormat": "",
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "refId": "B",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "max by (mountpoint) (node_filesystem_avail_bytes{job=\"node-exporter\", instance=\"$instance\", cluster=~\"$cluster\", fstype!=\"\", mountpoint!=\"\"})\n",
+              "legendFormat": "",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "groupBy",
+              "spec": {
+                "options": {
+                  "fields": {
+                    "Value #A": {
+                      "aggregations": [
+                        "lastNotNull"
+                      ],
+                      "operation": "aggregate"
+                    },
+                    "Value #B": {
+                      "aggregations": [
+                        "lastNotNull"
+                      ],
+                      "operation": "aggregate"
+                    },
+                    "mountpoint": {
+                      "aggregations": [],
+                      "operation": "groupby"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "merge",
+              "spec": {
+                "options": null
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "calculateField",
+              "spec": {
+                "options": {
+                  "alias": "Used",
+                  "binary": {
+                    "left": "Value #A (lastNotNull)",
+                    "operator": "-",
+                    "reducer": "sum",
+                    "right": "Value #B (lastNotNull)"
+                  },
+                  "mode": "binary",
+                  "reduce": {
+                    "reducer": "sum"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "calculateField",
+              "spec": {
+                "options": {
+                  "alias": "Used, %",
+                  "binary": {
+                    "left": "Used",
+                    "operator": "/",
+                    "reducer": "sum",
+                    "right": "Value #A (lastNotNull)"
+                  },
+                  "mode": "binary",
+                  "reduce": {
+                    "reducer": "sum"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "indexByName": {},
+                  "renameByName": {
+                    "Value #A (lastNotNull)": "Size",
+                    "Value #B (lastNotNull)": "Available",
+                    "mountpoint": "Mounted on"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "sortBy",
+              "spec": {
+                "options": {
+                  "fields": {},
+                  "sort": [
+                    {
+                      "field": "Mounted on"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 24,
+            "w": 12,
+            "h": 7
+          }
+        }
+      ],
+      "templating": {
+        "list": [
+          {
+            "type": "datasource",
+            "name": "datasource",
+            "label": "Data Source",
+            "query": "prometheus",
+            "refresh": 1,
+            "regex": "",
+            "current": {
+              "text": "Prometheus",
+              "value": "prometheus"
+            },
+            "hide": 0,
+            "multi": false,
+            "includeAll": false,
+            "allValue": null
+          },
+          {
+            "type": "query",
+            "name": "cluster",
+            "label": null,
+            "query": "label_values(node_time_seconds,$cluster)",
+            "refresh": 1,
+            "regex": "",
+            "sort": 0,
+            "current": {
+              "text": "",
+              "value": ""
+            },
+            "hide": 2,
+            "multi": false,
+            "includeAll": false,
+            "allValue": null
+          },
+          {
+            "type": "query",
+            "name": "instance",
+            "label": "Instance",
+            "query": "label_values(node_uname_info{job=\"node-exporter\", cluster=~\"$cluster\", sysname!=\"Darwin\"},instance)",
+            "refresh": 2,
+            "regex": "",
+            "sort": 0,
+            "current": {
+              "text": "Harkesh",
+              "value": "192.168.1.201:9100"
+            },
+            "hide": 0,
+            "multi": false,
+            "includeAll": false,
+            "allValue": null
+          }
+        ]
+      },
+      "links": []
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-docker-cadvisor
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  docker-cadvisor.json: |
+    {
+      "uid": "ax9gsr9",
+      "title": "Docker (cAdivisor)",
+      "description": "Simple exporter for cadvisor only",
+      "tags": [],
+      "editable": true,
+      "graphTooltip": 0,
+      "schemaVersion": 39,
+      "version": 1,
+      "timezone": "browser",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "refresh": "auto",
+      "panels": [
+        {
+          "id": 1000,
+          "type": "row",
+          "title": "CPU",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "panels": []
+        },
+        {
+          "id": 15,
+          "title": "CPU Usage",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "alertThreshold": true,
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(rate(container_cpu_usage_seconds_total{instance=~\"$host\",name=~\"$container\",name=~\".+\"}[5m])) by (name) *100",
+              "legendFormat": "{{name}}",
+              "interval": ""
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 1,
+            "w": 24,
+            "h": 7
+          }
+        },
+        {
+          "id": 1001,
+          "type": "row",
+          "title": "Memory",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 8
+          },
+          "panels": []
+        },
+        {
+          "id": 9,
+          "title": "Memory Usage",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "alertThreshold": true,
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(container_memory_rss{instance=~\"$host\",name=~\"$container\",name=~\".+\"}) by (name)",
+              "legendFormat": "{{name}}",
+              "interval": ""
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 9,
+            "w": 12,
+            "h": 8
+          }
+        },
+        {
+          "id": 14,
+          "title": "Memory Cached",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "alertThreshold": true,
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(container_memory_cache{instance=~\"$host\",name=~\"$container\",name=~\".+\"}) by (name)",
+              "legendFormat": "{{name}}",
+              "interval": ""
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 9,
+            "w": 12,
+            "h": 8
+          }
+        },
+        {
+          "id": 1002,
+          "type": "row",
+          "title": "Network",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 17
+          },
+          "panels": []
+        },
+        {
+          "id": 4,
+          "title": "Received Network Traffic",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "alertThreshold": true,
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(rate(container_network_receive_bytes_total{instance=~\"$host\",name=~\"$container\",name=~\".+\"}[5m])) by (name)",
+              "legendFormat": "{{name}}",
+              "interval": ""
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 18,
+            "w": 12,
+            "h": 8
+          }
+        },
+        {
+          "id": 6,
+          "title": "Sent Network Traffic",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "alertThreshold": true,
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(rate(container_network_transmit_bytes_total{instance=~\"$host\",name=~\"$container\",name=~\".+\"}[5m])) by (name)",
+              "legendFormat": "{{name}}",
+              "interval": ""
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 18,
+            "w": 12,
+            "h": 8
+          }
+        },
+        {
+          "id": 1003,
+          "type": "row",
+          "title": "Misc",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 26
+          },
+          "panels": []
+        },
+        {
+          "id": 17,
+          "title": "Containers Info",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "custom": {
+                "filterable": false
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "id"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 260
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Running"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "d"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-green",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "sortBy": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "(time() - container_start_time_seconds{instance=~\"$host\",name=~\"$container\",name=~\".+\"})/86400",
+              "legendFormat": "{{name}}",
+              "interval": "",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "filterFieldsByName",
+              "spec": {
+                "options": {
+                  "include": {
+                    "names": [
+                      "container_label_com_docker_compose_project",
+                      "container_label_com_docker_compose_project_working_dir",
+                      "image",
+                      "instance",
+                      "name",
+                      "Value",
+                      "container_label_com_docker_compose_service"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "indexByName": {},
+                  "renameByName": {
+                    "Value": "Running",
+                    "container_label_com_docker_compose_project": "Label",
+                    "container_label_com_docker_compose_project_working_dir": "Working dir",
+                    "container_label_com_docker_compose_service": "Service",
+                    "image": "Registry Image",
+                    "instance": "Instance",
+                    "name": "Name"
+                  }
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 27,
+            "w": 24,
+            "h": 10
+          }
+        }
+      ],
+      "templating": {
+        "list": [
+          {
+            "type": "query",
+            "name": "container",
+            "label": "Container",
+            "query": "label_values({__name__=~\"container.*\", instance=~\"$host\"},name)",
+            "refresh": 1,
+            "regex": "",
+            "sort": 0,
+            "current": {
+              "text": "All",
+              "value": "$__all"
+            },
+            "hide": 0,
+            "multi": false,
+            "includeAll": true,
+            "allValue": ".*"
+          },
+          {
+            "type": "query",
+            "name": "host",
+            "label": "Host",
+            "query": "label_values({__name__=~\"container.*\", job=\"cadvisor\"},instance)",
+            "refresh": 1,
+            "regex": "",
+            "sort": 0,
+            "current": {
+              "text": "10.0.0.160:8080",
+              "value": "10.0.0.160:8080"
+            },
+            "hide": 2,
+            "multi": false,
+            "includeAll": true,
+            "allValue": ".*"
+          }
+        ]
+      },
+      "links": []
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-docker-containers
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  docker-containers.json: |
+    {
+      "uid": "docker-cadvisor-flo",
+      "title": "Docker Containers",
+      "description": "MÃ©triques Docker uniquement via cAdvisor",
+      "tags": [
+        "docker",
+        "cadvisor"
+      ],
+      "editable": true,
+      "graphTooltip": 0,
+      "schemaVersion": 39,
+      "version": 1,
+      "timezone": "browser",
+      "time": {
+        "from": "now-3h",
+        "to": "now"
+      },
+      "refresh": "30s",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Containers actifs",
+          "description": "",
+          "type": "stat",
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ]
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "count(container_memory_usage_bytes{job=\"cadvisor\", id=~\"/system.slice/docker.*\"})",
+              "legendFormat": "containers",
+              "instant": true
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 4,
+            "h": 4
+          }
+        },
+        {
+          "id": 2,
+          "title": "RAM totale Docker",
+          "description": "",
+          "type": "stat",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "blue"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ]
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(container_memory_usage_bytes{job=\"cadvisor\", id=~\"/system.slice/docker.*\"})",
+              "legendFormat": "RAM",
+              "instant": true
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 4,
+            "y": 0,
+            "w": 5,
+            "h": 4
+          }
+        },
+        {
+          "id": 3,
+          "title": "CPU total Docker",
+          "description": "",
+          "type": "stat",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 50,
+                    "color": "yellow"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ]
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"cadvisor\", id=~\"/system.slice/docker.*\"}[5m])) * 100",
+              "legendFormat": "CPU",
+              "instant": true
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 9,
+            "y": 0,
+            "w": 5,
+            "h": 4
+          }
+        },
+        {
+          "id": 4,
+          "title": "CPU Usage %",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineWidth": 2,
+                "showPoints": "never",
+                "stacking": {
+                  "mode": "none"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max",
+                "lastNotNull"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(container_cpu_usage_seconds_total{job=\"cadvisor\", id=~\"/system.slice/docker.*\", name=~\"$container\"}[5m]) * 100",
+              "legendFormat": "{{name}}"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 4,
+            "w": 24,
+            "h": 8
+          }
+        },
+        {
+          "id": 5,
+          "title": "RAM Usage",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineWidth": 2,
+                "showPoints": "never",
+                "stacking": {
+                  "mode": "normal"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max",
+                "lastNotNull"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "container_memory_usage_bytes{job=\"cadvisor\", id=~\"/system.slice/docker.*\", name=~\"$container\"}",
+              "legendFormat": "{{name}}"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 12,
+            "w": 12,
+            "h": 8
+          }
+        },
+        {
+          "id": 6,
+          "title": "RAM RSS (mÃ©moire rÃ©elle)",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineWidth": 2,
+                "showPoints": "never",
+                "stacking": {
+                  "mode": "normal"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max",
+                "lastNotNull"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "container_memory_rss{job=\"cadvisor\", id=~\"/system.slice/docker.*\", name=~\"$container\"}",
+              "legendFormat": "{{name}}"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 12,
+            "w": 12,
+            "h": 8
+          }
+        },
+        {
+          "id": 7,
+          "title": "RÃ©seau â€” ReÃ§u",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineWidth": 2,
+                "showPoints": "never"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(container_network_receive_bytes_total{job=\"cadvisor\", id=~\"/system.slice/docker.*\", name=~\"$container\"}[5m])",
+              "legendFormat": "{{name}}"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 20,
+            "w": 12,
+            "h": 8
+          }
+        },
+        {
+          "id": 8,
+          "title": "RÃ©seau â€” EnvoyÃ©",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineWidth": 2,
+                "showPoints": "never"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(container_network_transmit_bytes_total{job=\"cadvisor\", id=~\"/system.slice/docker.*\", name=~\"$container\"}[5m])",
+              "legendFormat": "{{name}}"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 20,
+            "w": 12,
+            "h": 8
+          }
+        },
+        {
+          "id": 9,
+          "title": "Disk I/O â€” Lecture",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineWidth": 2,
+                "showPoints": "never"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(container_fs_reads_bytes_total{job=\"cadvisor\", id=~\"/system.slice/docker.*\", name=~\"$container\"}[5m])",
+              "legendFormat": "{{name}}"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 28,
+            "w": 12,
+            "h": 8
+          }
+        },
+        {
+          "id": 10,
+          "title": "Disk I/O â€” Ã‰criture",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineWidth": 2,
+                "showPoints": "never"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(container_fs_writes_bytes_total{job=\"cadvisor\", id=~\"/system.slice/docker.*\", name=~\"$container\"}[5m])",
+              "legendFormat": "{{name}}"
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 28,
+            "w": 12,
+            "h": 8
+          }
+        },
+        {
+          "id": 11,
+          "title": "Infos containers",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "RAM"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": 0
+                        },
+                        {
+                          "color": "yellow",
+                          "value": 1073741824
+                        },
+                        {
+                          "color": "red",
+                          "value": 5368709120
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "RAM"
+              }
+            ]
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "container_memory_usage_bytes{job=\"cadvisor\", id=~\"/system.slice/docker.*\"}",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "filterFieldsByName",
+              "spec": {
+                "options": {
+                  "include": {
+                    "names": [
+                      "name",
+                      "image",
+                      "container_label_com_docker_compose_service",
+                      "Value"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "renameByName": {
+                    "Value": "RAM",
+                    "container_label_com_docker_compose_service": "Service",
+                    "image": "Image",
+                    "name": "Container"
+                  }
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 36,
+            "w": 24,
+            "h": 8
+          }
+        }
+      ],
+      "templating": {
+        "list": [
+          {
+            "type": "query",
+            "name": "container",
+            "label": "Container",
+            "query": "label_values(container_memory_usage_bytes{job=\"cadvisor\", id=~\"/system.slice/docker.*\"}, name)",
+            "refresh": 1,
+            "regex": "",
+            "sort": 1,
+            "current": {
+              "text": "",
+              "value": ""
+            },
+            "hide": 0,
+            "multi": true,
+            "includeAll": true,
+            "allValue": ".*"
+          },
+          {
+            "type": "datasource",
+            "name": "datasource",
+            "label": "Datasource",
+            "query": "prometheus",
+            "refresh": 2,
+            "regex": "",
+            "current": {
+              "text": "",
+              "value": ""
+            },
+            "hide": 0,
+            "multi": false,
+            "includeAll": false,
+            "allValue": null
+          }
+        ]
+      },
+      "links": []
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-cloudflare-dns-analytics
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  cloudflare-dns-analytics.json: |
+    {
+      "uid": "be7vq07ornk00f",
+      "title": "Cloudflare DNS Analytics",
+      "description": "Replication of Cloudflare's new DNS Analytics Dashboard using Infinity and Cloudflare GraphQL API",
+      "tags": [],
+      "editable": true,
+      "graphTooltip": 0,
+      "schemaVersion": 39,
+      "version": 1,
+      "timezone": "browser",
+      "time": {
+        "from": "now-24h",
+        "to": "now"
+      },
+      "refresh": "",
+      "panels": [
+        {
+          "id": 1000,
+          "type": "row",
+          "title": "Query statistics",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "panels": []
+        },
+        {
+          "id": 2,
+          "title": "Total Queries",
+          "description": "",
+          "type": "stat",
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 3000,
+                    "color": "yellow"
+                  },
+                  {
+                    "value": 4000,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "Total Queries",
+                  "type": "number"
+                }
+              ],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                limit: 5000\n                filter: {\n                    datetimeHour_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeHour_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n            ) {\n                count\n                avg {\n                    processingTimeUs\n                    sampleInterval\n                }\n            }\n        }\n    }\n}\n",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 1,
+            "w": 8,
+            "h": 8
+          }
+        },
+        {
+          "id": 3,
+          "title": "Average queries per second",
+          "description": "",
+          "type": "stat",
+          "fieldConfig": {
+            "defaults": {
+              "decimals": 3,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "total_queries",
+                  "type": "number"
+                }
+              ],
+              "computed_columns": [
+                {
+                  "selector": "total_queries / (${__to:date:seconds} - ${__from:date:seconds})",
+                  "text": "Queries Per Second",
+                  "type": "string"
+                }
+              ],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                limit: 5000\n                filter: {\n                    datetimeHour_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeHour_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n            ) {\n                count\n                avg {\n                    processingTimeUs\n                    sampleInterval\n                }\n            }\n        }\n    }\n}\n",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {
+                    "total_queries": true
+                  },
+                  "includeByName": {},
+                  "indexByName": {},
+                  "renameByName": {}
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 8,
+            "y": 1,
+            "w": 8,
+            "h": 8
+          }
+        },
+        {
+          "id": 1,
+          "title": "Average processing time",
+          "description": "",
+          "type": "stat",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Âµs",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 3000,
+                    "color": "yellow"
+                  },
+                  {
+                    "value": 4000,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "avg.processingTimeUs",
+                  "text": "Average Processing Time",
+                  "type": "number"
+                }
+              ],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                limit: 5000\n                filter: {\n                    datetimeHour_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeHour_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n            ) {\n                count\n                avg {\n                    processingTimeUs\n                    sampleInterval\n                }\n            }\n        }\n    }\n}\n",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 16,
+            "y": 1,
+            "w": 8,
+            "h": 8
+          }
+        },
+        {
+          "id": 1001,
+          "type": "row",
+          "title": "Query Overview",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 9
+          },
+          "panels": []
+        },
+        {
+          "id": 10,
+          "title": "# Queries By Query Name",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "0",
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": 900000,
+                "lineInterpolation": "linear",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "fieldMinMax": false
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "# Queries:",
+                  "type": "number"
+                },
+                {
+                  "selector": "dimensions.datetimeFifteenMinutes",
+                  "text": "datetime",
+                  "type": "timestamp"
+                },
+                {
+                  "selector": "dimensions.queryName",
+                  "text": "query_name",
+                  "type": "string"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 5000\n            ) {\n                count\n                avg {\n                    sampleInterval\n                }\n                dimensions {\n                    queryName\n                    datetimeFifteenMinutes\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "prepareTimeSeries",
+              "spec": {
+                "options": {
+                  "format": "multi"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 10,
+            "w": 6,
+            "h": 8
+          }
+        },
+        {
+          "id": 11,
+          "title": "# Queries By Query Type",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "0",
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": 900000,
+                "lineInterpolation": "linear",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "fieldMinMax": false
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "# Queries:",
+                  "type": "number"
+                },
+                {
+                  "selector": "dimensions.datetimeFifteenMinutes",
+                  "text": "datetime",
+                  "type": "timestamp"
+                },
+                {
+                  "selector": "dimensions.queryType",
+                  "text": "query_type",
+                  "type": "string"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 5000\n            ) {\n                count\n                avg {\n                    sampleInterval\n                }\n                dimensions {\n                    queryType\n                    datetimeFifteenMinutes\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "prepareTimeSeries",
+              "spec": {
+                "options": {
+                  "format": "multi"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 6,
+            "y": 10,
+            "w": 6,
+            "h": 8
+          }
+        },
+        {
+          "id": 12,
+          "title": "# Queries By Response Code",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "0",
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": 900000,
+                "lineInterpolation": "linear",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "fieldMinMax": false
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "# Queries:",
+                  "type": "number"
+                },
+                {
+                  "selector": "dimensions.datetimeFifteenMinutes",
+                  "text": "datetime",
+                  "type": "timestamp"
+                },
+                {
+                  "selector": "dimensions.responseCode",
+                  "text": "response_code",
+                  "type": "string"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 5000\n            ) {\n                count\n                avg {\n                    sampleInterval\n                }\n                dimensions {\n                    responseCode\n                    datetimeFifteenMinutes\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "prepareTimeSeries",
+              "spec": {
+                "options": {
+                  "format": "multi"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 10,
+            "w": 6,
+            "h": 8
+          }
+        },
+        {
+          "id": 13,
+          "title": "# Queries By Data Center",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "0",
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": 900000,
+                "lineInterpolation": "linear",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "fieldMinMax": false
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "# Queries:",
+                  "type": "number"
+                },
+                {
+                  "selector": "dimensions.datetimeFifteenMinutes",
+                  "text": "datetime",
+                  "type": "timestamp"
+                },
+                {
+                  "selector": "dimensions.coloName",
+                  "text": "colo_name",
+                  "type": "string"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 5000\n            ) {\n                count\n                avg {\n                    sampleInterval\n                }\n                dimensions {\n                    coloName\n                    datetimeFifteenMinutes\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "prepareTimeSeries",
+              "spec": {
+                "options": {
+                  "format": "multi"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 18,
+            "y": 10,
+            "w": 6,
+            "h": 8
+          }
+        },
+        {
+          "id": 14,
+          "title": "# Queries By Source IP",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "0",
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": 900000,
+                "lineInterpolation": "linear",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "fieldMinMax": false
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "# Queries:",
+                  "type": "number"
+                },
+                {
+                  "selector": "dimensions.datetimeFifteenMinutes",
+                  "text": "datetime",
+                  "type": "timestamp"
+                },
+                {
+                  "selector": "dimensions.sourceIP",
+                  "text": "source_ip",
+                  "type": "string"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 5000\n            ) {\n                count\n                avg {\n                    sampleInterval\n                }\n                dimensions {\n                    sourceIP\n                    datetimeFifteenMinutes\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "prepareTimeSeries",
+              "spec": {
+                "options": {
+                  "format": "multi"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 18,
+            "w": 6,
+            "h": 8
+          }
+        },
+        {
+          "id": 15,
+          "title": "# Queries By Destination IP",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "0",
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": 900000,
+                "lineInterpolation": "linear",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "fieldMinMax": false
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "# Queries:",
+                  "type": "number"
+                },
+                {
+                  "selector": "dimensions.datetimeFifteenMinutes",
+                  "text": "datetime",
+                  "type": "timestamp"
+                },
+                {
+                  "selector": "dimensions.destinationIP",
+                  "text": "destination_ip",
+                  "type": "string"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 5000\n            ) {\n                count\n                avg {\n                    sampleInterval\n                }\n                dimensions {\n                    destinationIP\n                    datetimeFifteenMinutes\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "prepareTimeSeries",
+              "spec": {
+                "options": {
+                  "format": "multi"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 6,
+            "y": 18,
+            "w": 6,
+            "h": 8
+          }
+        },
+        {
+          "id": 16,
+          "title": "# Queries By Protocol",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "0",
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": 900000,
+                "lineInterpolation": "linear",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "fieldMinMax": false
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "# Queries:",
+                  "type": "number"
+                },
+                {
+                  "selector": "dimensions.datetimeFifteenMinutes",
+                  "text": "datetime",
+                  "type": "timestamp"
+                },
+                {
+                  "selector": "dimensions.protocol",
+                  "text": "protocol",
+                  "type": "string"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 5000\n            ) {\n                count\n                avg {\n                    sampleInterval\n                }\n                dimensions {\n                    protocol\n                    datetimeFifteenMinutes\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "prepareTimeSeries",
+              "spec": {
+                "options": {
+                  "format": "multi"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 18,
+            "w": 6,
+            "h": 8
+          }
+        },
+        {
+          "id": 17,
+          "title": "# Queries By IP Version",
+          "description": "",
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  },
+                  {
+                    "value": 80,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "0",
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": 900000,
+                "lineInterpolation": "linear",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "fieldMinMax": false
+            },
+            "overrides": []
+          },
+          "options": {
+            "annotations": {
+              "clustering": -1,
+              "multiLane": false
+            },
+            "legend": {
+              "calcs": [],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "# Queries:",
+                  "type": "number"
+                },
+                {
+                  "selector": "dimensions.datetimeFifteenMinutes",
+                  "text": "datetime",
+                  "type": "timestamp"
+                },
+                {
+                  "selector": "dimensions.ipVersion",
+                  "text": "ip_version",
+                  "type": "string"
+                }
+              ],
+              "computed_columns": [
+                {
+                  "selector": "\"IPv\" + ip_version",
+                  "text": "ip_version",
+                  "type": "string"
+                }
+              ],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 5000\n            ) {\n                count\n                avg {\n                    sampleInterval\n                }\n                dimensions {\n                    ipVersion\n                    datetimeFifteenMinutes\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {
+                    "ip_version 1": true
+                  },
+                  "includeByName": {},
+                  "indexByName": {},
+                  "renameByName": {
+                    "# Queries:": ""
+                  }
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "prepareTimeSeries",
+              "spec": {
+                "options": {
+                  "format": "multi"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 18,
+            "y": 18,
+            "w": 6,
+            "h": 8
+          }
+        },
+        {
+          "id": 1002,
+          "type": "row",
+          "title": "DNS Queries By Data Center",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 26
+          },
+          "panels": []
+        },
+        {
+          "id": 6,
+          "title": "DNS queries by data center",
+          "description": "",
+          "type": "geomap",
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "basemap": {
+              "config": {
+                "server": "streets",
+                "showLabels": true,
+                "theme": "auto"
+              },
+              "name": "Layer 0",
+              "opacity": 1,
+              "type": "default"
+            },
+            "controls": {
+              "mouseWheelZoom": true,
+              "showAttribution": true,
+              "showDebug": false,
+              "showMeasure": false,
+              "showScale": false,
+              "showZoom": true
+            },
+            "layers": [
+              {
+                "config": {
+                  "showLegend": false,
+                  "style": {
+                    "color": {
+                      "fixed": "blue"
+                    },
+                    "opacity": 0.5,
+                    "rotation": {
+                      "fixed": 0,
+                      "max": 360,
+                      "min": -360,
+                      "mode": "mod"
+                    },
+                    "size": {
+                      "field": "Count",
+                      "fixed": 5,
+                      "max": 20,
+                      "min": 10
+                    },
+                    "symbol": {
+                      "fixed": "img/icons/marker/circle.svg",
+                      "mode": "fixed"
+                    },
+                    "symbolAlign": {
+                      "horizontal": "center",
+                      "vertical": "center"
+                    },
+                    "text": {
+                      "fixed": "",
+                      "mode": "field"
+                    },
+                    "textConfig": {
+                      "fontSize": 12,
+                      "offsetX": 0,
+                      "textAlign": "center",
+                      "textBaseline": "middle"
+                    }
+                  }
+                },
+                "filterData": {
+                  "id": "byRefId",
+                  "options": "A"
+                },
+                "location": {
+                  "gazetteer": "public/gazetteer/airports.geojson",
+                  "lookup": "Data Center",
+                  "mode": "lookup"
+                },
+                "name": "Layer 1",
+                "tooltip": true,
+                "type": "markers"
+              }
+            ],
+            "tooltip": {
+              "mode": "details"
+            },
+            "view": {
+              "allLayers": true,
+              "dashboardVariable": false,
+              "id": "fit",
+              "lat": 0,
+              "lon": 0,
+              "noRepeat": false,
+              "padding": 15,
+              "zoom": 15
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "dimensions.coloName",
+                  "text": "Data Center",
+                  "type": "string"
+                },
+                {
+                  "selector": "count",
+                  "text": "Count",
+                  "type": "number"
+                }
+              ],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeHour_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeHour_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 5000\n                orderBy: [count_DESC]\n            ) {\n                count\n                dimensions {\n                    coloName\n                }\n            }\n        }\n    }\n}\n",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 27,
+            "w": 15,
+            "h": 12
+          }
+        },
+        {
+          "id": 9,
+          "title": "",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "blue"
+                  },
+                  {
+                    "value": 100,
+                    "color": "dark-blue"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "center",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "gauge",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "enablePagination": false,
+            "showHeader": false
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "dimensions.coloName",
+                  "text": "Data Center",
+                  "type": "string"
+                },
+                {
+                  "selector": "count",
+                  "text": "Count",
+                  "type": "number"
+                }
+              ],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeHour_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeHour_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 5000\n                orderBy: [count_DESC]\n            ) {\n                count\n                dimensions {\n                    coloName\n                }\n            }\n        }\n    }\n}\n",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "fieldLookup",
+              "spec": {
+                "options": {
+                  "gazetteer": "public/gazetteer/airports.geojson",
+                  "lookupField": "Data Center"
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {
+                    "abbrev": true,
+                    "geo": true,
+                    "gps_code": true,
+                    "iata_code": true,
+                    "location": true,
+                    "natlscale": true,
+                    "type": true,
+                    "wikipedia": true
+                  },
+                  "includeByName": {},
+                  "indexByName": {
+                    "Count": 10,
+                    "Data Center": 0,
+                    "abbrev": 6,
+                    "geo": 1,
+                    "gps_code": 7,
+                    "iata_code": 8,
+                    "location": 4,
+                    "name": 3,
+                    "natlscale": 5,
+                    "type": 2,
+                    "wikipedia": 9
+                  },
+                  "renameByName": {}
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 15,
+            "y": 27,
+            "w": 9,
+            "h": 12
+          }
+        },
+        {
+          "id": 1003,
+          "type": "row",
+          "title": "Queries by source",
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 39
+          },
+          "panels": []
+        },
+        {
+          "id": 18,
+          "title": "DNS Records",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "blue"
+                  },
+                  {
+                    "value": 100,
+                    "color": "dark-blue"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "noValue": "0",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              },
+              "fieldMinMax": false
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "gauge",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": false
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "dimensions.queryName",
+                  "text": "",
+                  "type": "string"
+                },
+                {
+                  "selector": "dimensions.queryType",
+                  "text": "",
+                  "type": "string"
+                },
+                {
+                  "selector": "count",
+                  "text": "",
+                  "type": "number"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 15\n                orderBy: [count_DESC]\n            ) {\n                count\n                dimensions {\n                    queryName\n                    queryType\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "includeByName": {},
+                  "indexByName": {
+                    "count": 2,
+                    "dimensions.queryName": 0,
+                    "dimensions.queryType": 1
+                  },
+                  "renameByName": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "limit",
+              "spec": {
+                "options": {
+                  "limitField": "${num_display_items}"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 40,
+            "w": 12,
+            "h": 10
+          }
+        },
+        {
+          "id": 20,
+          "title": "Query Name",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "blue"
+                  },
+                  {
+                    "value": 100,
+                    "color": "dark-blue"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "noValue": "0",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              },
+              "fieldMinMax": false
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "gauge",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": false
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "dimensions.queryName",
+                  "text": "",
+                  "type": "string"
+                },
+                {
+                  "selector": "count",
+                  "text": "",
+                  "type": "number"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 15\n                orderBy: [count_DESC]\n            ) {\n                count\n                dimensions {\n                    queryName\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "includeByName": {},
+                  "indexByName": {
+                    "count": 2,
+                    "dimensions.queryName": 0,
+                    "dimensions.queryType": 1
+                  },
+                  "renameByName": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "limit",
+              "spec": {
+                "options": {
+                  "limitField": "${num_display_items}"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 40,
+            "w": 12,
+            "h": 10
+          }
+        },
+        {
+          "id": 21,
+          "title": "Query Name",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "blue"
+                  },
+                  {
+                    "value": 100,
+                    "color": "dark-blue"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "noValue": "0",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              },
+              "fieldMinMax": false
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "gauge",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": false
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "dimensions.responseCode",
+                  "text": "",
+                  "type": "string"
+                },
+                {
+                  "selector": "count",
+                  "text": "",
+                  "type": "number"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 15\n                orderBy: [count_DESC]\n            ) {\n                count\n                dimensions {\n                    responseCode\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "includeByName": {},
+                  "indexByName": {
+                    "count": 1,
+                    "dimensions.responseCode": 0
+                  },
+                  "renameByName": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "limit",
+              "spec": {
+                "options": {
+                  "limitField": "${num_display_items}"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 50,
+            "w": 12,
+            "h": 10
+          }
+        },
+        {
+          "id": 22,
+          "title": "Record type",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "blue"
+                  },
+                  {
+                    "value": 100,
+                    "color": "dark-blue"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "noValue": "0",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              },
+              "fieldMinMax": false
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "gauge",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": false
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "dimensions.queryType",
+                  "text": "",
+                  "type": "string"
+                },
+                {
+                  "selector": "count",
+                  "text": "",
+                  "type": "number"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 15\n                orderBy: [count_DESC]\n            ) {\n                count\n                dimensions {\n                    queryType\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "includeByName": {},
+                  "indexByName": {
+                    "count": 2,
+                    "dimensions.queryName": 0,
+                    "dimensions.queryType": 1
+                  },
+                  "renameByName": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "limit",
+              "spec": {
+                "options": {
+                  "limitField": "${num_display_items}"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 50,
+            "w": 12,
+            "h": 10
+          }
+        },
+        {
+          "id": 23,
+          "title": "Source IP",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "blue"
+                  },
+                  {
+                    "value": 100,
+                    "color": "dark-blue"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "noValue": "0",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              },
+              "fieldMinMax": false
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "gauge",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": false
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "dimensions.sourceIP",
+                  "text": "",
+                  "type": "string"
+                },
+                {
+                  "selector": "count",
+                  "text": "",
+                  "type": "number"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 15\n                orderBy: [count_DESC]\n            ) {\n                count\n                dimensions {\n                    sourceIP\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "includeByName": {},
+                  "indexByName": {
+                    "count": 1,
+                    "dimensions.sourceIP": 0
+                  },
+                  "renameByName": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "limit",
+              "spec": {
+                "options": {
+                  "limitField": "${num_display_items}"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 60,
+            "w": 12,
+            "h": 10
+          }
+        },
+        {
+          "id": 24,
+          "title": "Destination IP",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "blue"
+                  },
+                  {
+                    "value": 100,
+                    "color": "dark-blue"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "noValue": "0",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              },
+              "fieldMinMax": false
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "gauge",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": false
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "dimensions.destinationIP",
+                  "text": "",
+                  "type": "string"
+                },
+                {
+                  "selector": "count",
+                  "text": "",
+                  "type": "number"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 15\n                orderBy: [count_DESC]\n            ) {\n                count\n                dimensions {\n                    destinationIP\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "includeByName": {},
+                  "indexByName": {
+                    "count": 1,
+                    "dimensions.destinationIP": 0
+                  },
+                  "renameByName": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "limit",
+              "spec": {
+                "options": {
+                  "limitField": "${num_display_items}"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 60,
+            "w": 12,
+            "h": 10
+          }
+        },
+        {
+          "id": 25,
+          "title": "Transport Protocol",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "blue"
+                  },
+                  {
+                    "value": 100,
+                    "color": "dark-blue"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "noValue": "0",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              },
+              "fieldMinMax": false
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "gauge",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": false
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "dimensions.protocol",
+                  "text": "",
+                  "type": "string"
+                },
+                {
+                  "selector": "count",
+                  "text": "",
+                  "type": "number"
+                }
+              ],
+              "computed_columns": [],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 15\n                orderBy: [count_DESC]\n            ) {\n                count\n                dimensions {\n                    protocol\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {},
+                  "includeByName": {},
+                  "indexByName": {
+                    "count": 1,
+                    "dimensions.protocol": 0
+                  },
+                  "renameByName": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "limit",
+              "spec": {
+                "options": {
+                  "limitField": "${num_display_items}"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 70,
+            "w": 12,
+            "h": 10
+          }
+        },
+        {
+          "id": 26,
+          "title": "IP Version",
+          "description": "",
+          "type": "table",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "value": 0,
+                    "color": "blue"
+                  },
+                  {
+                    "value": 100,
+                    "color": "dark-blue"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "noValue": "0",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              },
+              "fieldMinMax": false
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "gauge",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": false
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": false,
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "cloudflare-infinity"
+              },
+              "columns": [
+                {
+                  "selector": "dimensions.ipVersion",
+                  "text": "ip_version",
+                  "type": "string"
+                },
+                {
+                  "selector": "count",
+                  "text": "",
+                  "type": "number"
+                }
+              ],
+              "computed_columns": [
+                {
+                  "selector": "\"IPv\" + ip_version",
+                  "text": "_ip_version",
+                  "type": "string"
+                }
+              ],
+              "filters": [],
+              "format": "table",
+              "global_query_id": "",
+              "parser": "backend",
+              "root_selector": "data.viewer.zones[0].dnsAnalyticsAdaptiveGroups",
+              "source": "url",
+              "summarizeBy": "",
+              "summarizeExpression": "",
+              "type": "graphql",
+              "url": "https://api.cloudflare.com/client/v4/graphql",
+              "url_options": {
+                "body_content_type": "application/json",
+                "body_graphql_query": "query Viewer {\n    viewer {\n        zones(filter: { zoneTag: \"$zone_id\" }) {\n            zoneTag\n            dnsAnalyticsAdaptiveGroups(\n                filter: {\n                    datetimeMinute_geq: \"${__from:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                    datetimeMinute_leq: \"${__to:date:YYYY-MM-DDTHH:mm:ssZ}\"\n                }\n                limit: 15\n                orderBy: [count_DESC]\n            ) {\n                count\n                dimensions {\n                    ipVersion\n                }\n            }\n        }\n    }\n}\n",
+                "body_graphql_variables": "{ }",
+                "body_type": "graphql",
+                "data": "",
+                "method": "POST"
+              }
+            }
+          ],
+          "transformations": [
+            {
+              "kind": "Transformation",
+              "group": "organize",
+              "spec": {
+                "options": {
+                  "excludeByName": {
+                    "ip_version": true,
+                    "ip_version 1": true
+                  },
+                  "includeByName": {},
+                  "indexByName": {
+                    "_ip_version": 1,
+                    "count": 2,
+                    "ip_version": 0
+                  },
+                  "renameByName": {}
+                }
+              }
+            },
+            {
+              "kind": "Transformation",
+              "group": "limit",
+              "spec": {
+                "options": {
+                  "limitField": "${num_display_items}"
+                }
+              }
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "cloudflare-infinity"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 70,
+            "w": 12,
+            "h": 10
+          }
+        }
+      ],
+      "templating": {
+        "list": [
+          {
+            "type": "custom",
+            "name": "zone_id",
+            "label": "Zone ID",
+            "query": "[\n{\"text\": \"Castaldo.fr\", \"value\": \"8dc97d32be47d4ad32acd46f74b1cd92\"},\n{\"text\": \"Axtazer.me\", \"value\": \"30bdb354143550c840cba7834370d0e7\"}\n]",
+            "options": [],
+            "current": {
+              "text": "Castaldo.fr",
+              "value": "8dc97d32be47d4ad32acd46f74b1cd92"
+            },
+            "hide": 0,
+            "multi": false,
+            "includeAll": false,
+            "valuesFormat": "json"
+          },
+          {
+            "type": "custom",
+            "name": "num_display_items",
+            "label": null,
+            "query": "5, 10, 15",
+            "options": [
+              {
+                "selected": false,
+                "text": "5",
+                "value": "5"
+              },
+              {
+                "selected": true,
+                "text": "10",
+                "value": "10"
+              },
+              {
+                "selected": false,
+                "text": "15",
+                "value": "15"
+              }
+            ],
+            "current": {
+              "text": "10",
+              "value": "10"
+            },
+            "hide": 1,
+            "multi": false,
+            "includeAll": false,
+            "valuesFormat": "csv"
+          }
+        ]
+      },
+      "links": []
+    }

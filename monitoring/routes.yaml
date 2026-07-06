@@ -16,7 +16,7 @@ spec:
             type: PathPrefix
             value: /
       backendRefs:
-        - name: kube-prometheus-stack-grafana
+        - name: victoria-metrics-k8s-stack-grafana
           port: 80
 ---
 apiVersion: networking.k8s.io/v1
@@ -34,6 +34,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: kube-prometheus-stack-grafana
+                name: victoria-metrics-k8s-stack-grafana
                 port:
                   number: 80

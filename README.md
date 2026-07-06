@@ -20,7 +20,8 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 │   ├── dcgm-exporter.yaml         # App Helm DCGM exporter (GPU)
 │   ├── helm-repositories.yaml     # Repos Helm déclarés (Secrets)
 │   ├── k8s-device-plugin.yaml     # App Helm NVIDIA device plugin (GPU)
-│   ├── kube-prometheus-stack.yaml # App Helm kube-prometheus-stack (Grafana/Prometheus)
+│   ├── kube-prometheus-stack.yaml # App Helm kube-prometheus-stack (Grafana/Prometheus) — en cours de migration vers VictoriaMetrics
+│   ├── victoria-metrics-k8s-stack.yaml # App Helm victoria-metrics-k8s-stack (coexistence, cf. section Monitoring)
 │   ├── n8n.yaml                   # App Helm n8n (8gears/n8n-helm-chart)
 │   ├── namespace.yaml             # Namespace argocd (label shared-gateway-access)
 │   └── root-app.yaml              # Bootstrap : root Application (lit argocd/)
@@ -181,15 +182,23 @@ argocd app create root --repo git@github.com:Axtazer/harkesh-k8s.git --path argo
 `root` déploie ensuite automatiquement :
 - l'ApplicationSet `cluster-apps` (`argocd/applicationset.yaml`), qui crée une Application par dossier listé
   (`authentik`, `axtazer-me`, `bots`, `flo-pro`, `jellyfin`, `media-stack`, `monitoring`, `nextcloud`, `ntfy`, `pelican`, `shlink`) ;
-- les Applications Helm dédiées : `argocd/n8n.yaml`, `argocd/kube-prometheus-stack.yaml`, `argocd/dcgm-exporter.yaml`,
-  `argocd/k8s-device-plugin.yaml` ;
+- les Applications Helm dédiées : `argocd/n8n.yaml`, `argocd/kube-prometheus-stack.yaml`, `argocd/victoria-metrics-k8s-stack.yaml`,
+  `argocd/dcgm-exporter.yaml`, `argocd/k8s-device-plugin.yaml` ;
 - les apps infra : `argocd/cilium.yaml`, `argocd/cilium-gateway.yaml`, `argocd/cloudflare-tunnel-controller.yaml`.
 
-### 5. Monitoring (kube-prometheus-stack)
+### 5. Monitoring (migration kube-prometheus-stack → victoria-metrics-k8s-stack)
+
+> Migration en cours (réduction RAM ~1.4 Go → ~300 Mo). Les deux stacks coexistent temporairement :
+> Grafana/kube-state-metrics/node-exporter restent uniquement sur kube-prometheus-stack jusqu'à la bascule finale
+> (suppression de kube-prometheus-stack une fois l'historique Prometheus migré via `vmctl`).
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm install prometheus prometheus-community/kube-prometheus-stack \
+  -n monitoring --create-namespace
+
+helm repo add victoria-metrics https://victoriametrics.github.io/helm-charts
+helm install victoria-metrics-k8s-stack victoria-metrics/victoria-metrics-k8s-stack \
   -n monitoring --create-namespace
 ```
 

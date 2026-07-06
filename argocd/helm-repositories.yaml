@@ -62,6 +62,18 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
+  name: repo-victoria-metrics
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: victoria-metrics
+  url: https://victoriametrics.github.io/helm-charts
+---
+apiVersion: v1
+kind: Secret
+metadata:
   name: repo-8gears
   namespace: argocd
   labels:

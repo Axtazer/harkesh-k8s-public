@@ -1,0 +1,59 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: victoria-metrics-k8s-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    - chart: victoria-metrics-k8s-stack
+      repoURL: https://victoriametrics.github.io/helm-charts
+      targetRevision: 0.85.10
+      helm:
+        values: |
+          # PR1 (coexistence) : grafana/kube-state-metrics/node-exporter restent désactivés
+          # tant que kube-prometheus-stack fournit encore ces composants.
+          # PR2 les activera ici et les désactivera dans kube-prometheus-stack.
+          vmsingle:
+            enabled: true
+            spec:
+              retentionPeriod: "30d"
+              storage:
+                storageClassName: local-path
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 20Gi
+          vmagent:
+            enabled: true
+            spec:
+              scrapeInterval: 60s
+              selectAllByDefault: true
+          victoria-metrics-operator:
+            enabled: true
+            operator:
+              disable_prometheus_converter: false
+          grafana:
+            enabled: false
+          alertmanager:
+            enabled: false
+          kube-state-metrics:
+            enabled: false
+          prometheus-node-exporter:
+            enabled: false
+          vmalert:
+            enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

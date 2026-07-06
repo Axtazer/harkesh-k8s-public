@@ -30,6 +30,8 @@ spec:
             spec:
               scrapeInterval: 60s
               selectAllByDefault: true
+              extraArgs:
+                promscrape.maxScrapeSize: "64MiB"
           victoria-metrics-operator:
             enabled: true
             operator:
@@ -82,9 +84,11 @@ spec:
             enabled: true
           vmalert:
             enabled: false
-          # kubeApiServer/kubeEtcd restent actifs par defaut (alignes sur kube-prometheus-stack) ;
-          # kubelet/coreDns/kubeControllerManager/kubeScheduler gardent aussi les defauts du chart
-          # (actifs), kubeProxy reste desactive (pas de kube-proxy, remplace par Cilium).
+          # kubeApiServer reste actif (aligne sur kube-prometheus-stack) ; kubelet/coreDns
+          # gardent aussi les defauts du chart (actifs).
+          # kubeControllerManager/kubeScheduler/kubeEtcd desactives : composants kubeadm
+          # bindes sur 127.0.0.1 sur ce cluster, targets injoignables/down en permanence.
+          # kubeProxy desactive : pas de kube-proxy, remplace par Cilium (kubeProxyReplacement).
           kubeApiServer:
             enabled: true
             vmScrape:
@@ -100,20 +104,14 @@ spec:
                       - action: drop
                         source_labels: [__name__]
                         regex: apiserver_(request_body_size|request_duration_seconds|request_sli_duration_seconds|response_sizes|watch_list_duration_seconds|watch_cache_read_wait_seconds)_bucket
+          kubeControllerManager:
+            enabled: false
+          kubeScheduler:
+            enabled: false
           kubeEtcd:
-            enabled: true
-            vmScrape:
-              spec:
-                endpoints:
-                  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-                    port: http-metrics
-                    scheme: https
-                    tlsConfig:
-                      caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-                    metricRelabelConfigs:
-                      - action: drop
-                        source_labels: [__name__]
-                        regex: etcd_request_duration_seconds_bucket
+            enabled: false
+          kubeProxy:
+            enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

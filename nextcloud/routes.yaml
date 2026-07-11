@@ -10,6 +10,7 @@ spec:
       namespace: kube-system
   hostnames:
     - nas.castaldo.fr
+    - harkesh.lan
   rules:
     - matches:
         - path:

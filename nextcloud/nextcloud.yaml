@@ -252,14 +252,10 @@ spec:
               value: "16G"
             - name: TZ
               value: Europe/Paris
-            - name: OVERWRITEHOST
-              value: nas.castaldo.fr
-            - name: OVERWRITEPROTOCOL
-              value: https
-            - name: OVERWRITECLIURL
-              value: https://nas.castaldo.fr
             - name: NEXTCLOUD_TRUSTED_DOMAINS
               value: "nas.castaldo.fr harkesh.lan"
+            - name: TRUSTED_PROXIES
+              value: "10.42.0.0/16 10.43.0.0/16"
             - name: REDIS_HOST
               value: redis.nextcloud.svc.cluster.local
             - name: REDIS_HOST_PORT

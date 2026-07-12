@@ -38,7 +38,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: bot
-          image: ghcr.io/axtazer/axtazia:619bc38@sha256:45ed8d849553fb683f6e6a8664aab757b3b0ab8c2c0815e06a74dc26247bb8fa
+          image: ghcr.io/axtazer/axtazia:0e2eb34@sha256:cef37f60847eb2586f3fd87dd9020d2774e971d08cd6431da173c0208639a7b1
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

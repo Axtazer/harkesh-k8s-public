@@ -15,6 +15,9 @@ spec:
         - path:
             type: PathPrefix
             value: /webhook/twitch
+        - path:
+            type: PathPrefix
+            value: /oauth/callback/discord
       backendRefs:
         - name: axtazia-bot
           port: 3000
@@ -31,6 +34,13 @@ spec:
       http:
         paths:
           - path: /webhook/twitch
+            pathType: Prefix
+            backend:
+              service:
+                name: axtazia-bot
+                port:
+                  number: 3000
+          - path: /oauth/callback/discord
             pathType: Prefix
             backend:
               service:

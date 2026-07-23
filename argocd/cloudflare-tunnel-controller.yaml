@@ -19,7 +19,7 @@ spec:
       ref: values
     - chart: cloudflare-tunnel-ingress-controller
       repoURL: https://helm.strrl.dev
-      targetRevision: 0.0.23
+      targetRevision: 0.0.24
       helm:
         valueFiles:
           - $values/infra/cloudflare-tunnel-controller/values.yaml

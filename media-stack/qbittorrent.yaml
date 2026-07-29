@@ -35,7 +35,7 @@ spec:
               readOnly: true
       containers:
         - name: gluetun
-          image: ghcr.io/qdm12/gluetun:latest@sha256:ad6b604e0cecc917a5cb6a8de55cd167ba415da8b7ec13456abb871a84be3c30
+          image: ghcr.io/qdm12/gluetun:latest@sha256:65dc8922f1ea3fa732d8aa9210143d98d16c3e75897c21f8acdb04ea2dbb313a
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

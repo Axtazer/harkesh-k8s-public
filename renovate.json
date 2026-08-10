@@ -375,11 +375,17 @@
       ]
     },
     {
-      "description": "Seerr (ex-Jellyseerr) — digest/patch/minor automerge, versioning semver forcé (registre avec tags roulants v3/v3.3/v3.4 qui perturbent le tri générique)",
+      "description": "Seerr (ex-Jellyseerr) — versioning semver forcé (registre avec tags roulants v3/v3.3/v3.4 qui perturbent le tri générique)",
       "matchPackageNames": [
         "ghcr.io/seerr-team/seerr"
       ],
-      "versioning": "semver",
+      "versioning": "semver"
+    },
+    {
+      "description": "Seerr (ex-Jellyseerr) — digest/patch/minor automerge",
+      "matchPackageNames": [
+        "ghcr.io/seerr-team/seerr"
+      ],
       "groupName": "seerr",
       "automerge": true,
       "automergeType": "pr",

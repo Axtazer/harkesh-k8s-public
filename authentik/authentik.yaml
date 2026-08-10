@@ -88,7 +88,7 @@ spec:
     spec:
       containers:
         - name: postgresql
-          image: postgres:16@sha256:eb4759788a2182f08257135e61a34f2cfc3c2914079f3465d64ee62350f4d081
+          image: postgres:16@sha256:95206741a5b214807675e14165369d05b93a9cf692223b616d07cca227e74b0b
           env:
             - name: POSTGRES_DB
               valueFrom:

@@ -294,15 +294,18 @@ Les images Docker sont suivies et mises à jour automatiquement via Renovate (co
 | `nextcloud` + `mariadb` + `redis` | Manuel — review obligatoire |
 | `ghcr.io/pelican-dev/*` | Automerge digest/patch/minor |
 | `cloudflare-tunnel-ingress-controller` (Helm) | Automerge patch/minor |
-| `gcr.io/cadvisor/cadvisor` | Automerge digest/patch |
+| `gcr.io/cadvisor/cadvisor` | Automerge digest/patch/minor |
+| `ghcr.io/axtazer/axtazer-me` | Automerge digest |
 | `ghcr.io/axtazer/axtazia` | Automerge digest |
-| `ghcr.io/axtazer/flo-pro` | Automerge digest |
+| `ghcr.io/axtazer/flo-pro` | Automerge digest (lookup limité — image GHCR privée, cf. workflow `update-image`) |
 | `ghcr.io/shlinkio/shlink` + `shlink-web-client` | Automerge digest/patch/minor |
 | `ghcr.io/goauthentik/server` | Automerge digest/patch/minor — major manuel (migrations BDD) |
 | `binwiederhier/ntfy` | Automerge digest/patch/minor — major manuel |
-| `postgres` (shlink, n8n, authentik) | Major bloqué — migrations irréversibles |
+| `postgres` (shlink, n8n, authentik) | Automerge digest — major bloqué (migrations irréversibles) |
 | `n8nio/n8n` | Automerge digest/patch/minor — major manuel |
 | `busybox` | Automerge digest/patch/minor |
+| `yannh/kubeconform` (CI) | Automerge digest/patch/minor |
 | `jellyfin/jellyfin` | Automerge digest/patch — minor/major manuel |
-| `lscr.io/linuxserver/*` + `ghcr.io/qdm12/gluetun` + Seerr | Automerge digest/patch/minor |
+| `lscr.io/linuxserver/*` + `ghcr.io/qdm12/gluetun` | Automerge digest/patch/minor |
+| `ghcr.io/seerr-team/seerr` | Automerge digest/patch/minor — versioning semver forcé (registre à tags roulants) |
 | Toutes les majors | Manuel — review obligatoire |

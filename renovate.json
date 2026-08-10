@@ -11,7 +11,7 @@
   "automerge": false,
   "kubernetes": {
     "managerFilePatterns": [
-      "/argocd\\.yaml$/",
+      "/axtazer-me/.+\\.yaml$/",
       "/bots/.+\\.yaml$/",
       "/infra/cloudflare-tunnel-controller/.+\\.yaml$/",
       "/flo-pro/.+\\.yaml$/",
@@ -128,11 +128,11 @@
       ]
     },
     {
-      "description": "warframe-bot — digest automerge (image interne, pas de migration)",
+      "description": "axtazer-me — digest automerge (image interne, site statique, pas de migration)",
       "matchPackageNames": [
-        "ghcr.io/axtazer/warframe-bot"
+        "ghcr.io/axtazer/axtazer-me"
       ],
-      "groupName": "warframe-bot",
+      "groupName": "axtazer-me",
       "minimumReleaseAge": "0 days",
       "automerge": true,
       "automergeType": "pr",
@@ -140,7 +140,7 @@
         "digest"
       ],
       "labels": [
-        "bot",
+        "axtazer-me",
         "automerge"
       ]
     },
@@ -196,7 +196,7 @@
       ]
     },
     {
-      "description": "cAdvisor — digest/patch automerge",
+      "description": "cAdvisor — digest/patch/minor automerge (exporter métriques, risque nul)",
       "matchPackageNames": [
         "gcr.io/cadvisor/cadvisor"
       ],
@@ -205,10 +205,29 @@
       "automergeType": "pr",
       "matchUpdateTypes": [
         "digest",
-        "patch"
+        "patch",
+        "minor"
       ],
       "labels": [
         "monitoring",
+        "automerge"
+      ]
+    },
+    {
+      "description": "kubeconform (linter CI) — digest/patch/minor automerge, casse au pire le check validate",
+      "matchPackageNames": [
+        "yannh/kubeconform"
+      ],
+      "groupName": "kubeconform",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "ci",
         "automerge"
       ]
     },
@@ -253,6 +272,18 @@
       "matchPackageNames": ["postgres"],
       "matchUpdateTypes": ["major"],
       "enabled": false
+    },
+    {
+      "description": "postgres partout — digest automerge (tag majeur épinglé, même version, pas de migration)",
+      "matchPackageNames": ["postgres"],
+      "groupName": "postgres",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["digest"],
+      "labels": [
+        "database",
+        "automerge"
+      ]
     },
     {
       "description": "Shlink — digest/patch/minor automerge, major manuel",
@@ -344,14 +375,32 @@
       ]
     },
     {
-      "description": "media-stack *arr + Gluetun + Jellyseerr — digest/patch/minor automerge, major manuel",
+      "description": "Seerr (ex-Jellyseerr) — digest/patch/minor automerge, versioning semver forcé (registre avec tags roulants v3/v3.3/v3.4 qui perturbent le tri générique)",
+      "matchPackageNames": [
+        "ghcr.io/seerr-team/seerr"
+      ],
+      "versioning": "semver",
+      "groupName": "seerr",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "media",
+        "automerge"
+      ]
+    },
+    {
+      "description": "media-stack *arr + Gluetun — digest/patch/minor automerge, major manuel",
       "matchPackageNames": [
         "lscr.io/linuxserver/prowlarr",
         "lscr.io/linuxserver/radarr",
         "lscr.io/linuxserver/sonarr",
         "lscr.io/linuxserver/qbittorrent",
-        "ghcr.io/qdm12/gluetun",
-        "ghcr.io/seerr-team/seerr"
+        "ghcr.io/qdm12/gluetun"
       ],
       "groupName": "media-stack",
       "automerge": true,

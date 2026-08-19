@@ -28,7 +28,7 @@ spec:
         fsGroupChangePolicy: Always
       containers:
         - name: panel
-          image: ghcr.io/pelican-dev/panel:v1.0.0-beta35@sha256:62edd14e133f9240e00df082f82c720ff93deca488b0c6602e95cc7fb6560abb
+          image: ghcr.io/pelican/panel:1.0.0-beta38@sha256:fc3fcb30ee9b48094a4ea3d1483af9b088060241dca59150925f77ccc245c5bb
           env:
             - name: APP_URL
               value: "https://panel.axtazer.me"

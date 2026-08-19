@@ -41,7 +41,7 @@ spec:
         kubernetes.io/hostname: harkesh
       containers:
         - name: wings
-          image: ghcr.io/pelican-dev/wings:latest@sha256:0da2b1afbefbb5f668312d653213eb71bf4756341d5a56bf37f04802e0f3b31c
+          image: ghcr.io/pelican/wings:v1.0.0-beta29@sha256:12342c181eefc30641d23f950edc5a0dd5da30d70821efab1b8d866f4d3999cf
           securityContext:
             privileged: true
             runAsUser: 0

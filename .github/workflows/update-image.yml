@@ -39,6 +39,7 @@ jobs:
           declare -A MAP=(
             ["flo-pro"]="flo-pro/web_flo-pro.yaml"
             ["dev-flo-pro"]="flo-pro/dev_flo-pro.yaml"
+            ["axtazer-me"]="axtazer-me/axtazer-me.yaml"
           )
           FILE=${MAP[$APP]}
           if [ -z "$FILE" ]; then
@@ -63,7 +64,8 @@ jobs:
           git checkout -b chore/update-images origin/master
           if git rev-parse origin/chore/update-images >/dev/null 2>&1; then
             # Overlay current branch state as a single squash commit (no conflict)
-            git checkout origin/chore/update-images -- .
+            # Exclude .github so a stale branch can never clobber workflow changes merged since it was created
+            git checkout origin/chore/update-images -- . ':!.github'
             git add -A
             if ! git diff --staged --quiet; then
               git commit -m "chore: restore pending digest updates"

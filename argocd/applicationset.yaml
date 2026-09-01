@@ -16,6 +16,7 @@ spec:
           - path: bots
           - path: flo-pro
           - path: jellyfin
+          - path: matrix
           - path: media-stack
           - path: monitoring
           - path: nextcloud

@@ -1,0 +1,366 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: matrix
+  labels:
+    shared-gateway-access: "true"
+---
+# Secrets requis dans le vault k8s-home, item "matrix" :
+#   postgres-user, postgres-password, postgres-db
+#   registration-shared-secret, macaroon-secret-key, form-secret
+#   (les 3 derniers : générer avec `openssl rand -hex 32`, uniquement des caractères hex)
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: matrix-secrets
+  namespace: matrix
+spec:
+  itemPath: "vaults/k8s-home/items/matrix"
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: matrix-postgres-data-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/data/matrix/postgres
+  claimRef:
+    namespace: matrix
+    name: matrix-postgres-data-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: matrix-postgres-data-pvc
+  namespace: matrix
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  volumeName: matrix-postgres-data-pv
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: matrix-synapse-data-pv
+spec:
+  capacity:
+    storage: 15Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/data/matrix/synapse
+  claimRef:
+    namespace: matrix
+    name: matrix-synapse-data-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: matrix-synapse-data-pvc
+  namespace: matrix
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 15Gi
+  volumeName: matrix-synapse-data-pv
+
+---
+# homeserver.yaml est un template : les placeholders __XXX__ sont substitués par
+# l'initContainer config-init à partir du secret matrix-secrets (voir Deployment synapse).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matrix-config
+  namespace: matrix
+data:
+  homeserver.yaml: |
+    server_name: "matrix.axtazer.me"
+    pid_file: /data/homeserver.pid
+    public_baseurl: "https://matrix.axtazer.me/"
+
+    listeners:
+      - port: 8008
+        tls: false
+        type: http
+        x_forwarded: true
+        resources:
+          - names: [client]
+            compress: false
+
+    database:
+      name: psycopg2
+      args:
+        user: __DB_USER__
+        password: __DB_PASSWORD__
+        dbname: __DB_NAME__
+        host: postgres
+        port: 5432
+        cp_min: 5
+        cp_max: 10
+
+    log_config: "/data/log.config"
+
+    media_store_path: /data/media_store
+    max_upload_size: 50M
+    max_image_pixels: 32M
+    dynamic_thumbnails: false
+
+    # Homeserver privé — pas de fédération avec d'autres serveurs Matrix.
+    # (le listener n'expose déjà que la resource "client" ci-dessus ; ceci ferme
+    # aussi l'entrée fédération au niveau applicatif, en défense en profondeur)
+    federation_domain_whitelist: []
+    allow_public_rooms_over_federation: false
+    allow_public_rooms_without_auth: false
+    trusted_key_servers: []
+    suppress_key_server_warning: true
+
+    # Inscriptions fermées — créer les comptes via :
+    #   kubectl exec -it -n matrix deploy/synapse -- register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008
+    enable_registration: false
+    registration_shared_secret: "__REGISTRATION_SHARED_SECRET__"
+
+    report_stats: false
+    enable_metrics: false
+
+    macaroon_secret_key: "__MACAROON_SECRET_KEY__"
+    form_secret: "__FORM_SECRET__"
+
+    signing_key_path: "/data/matrix.axtazer.me.signing.key"
+  log.config: |
+    version: 1
+    formatters:
+      precise:
+        format: '%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(request)s - %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: precise
+    loggers:
+      synapse.storage.SQL:
+        level: INFO
+    root:
+      level: INFO
+      handlers: [console]
+    disable_existing_loggers: false
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: matrix
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: postgres
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: postgres-db
+            # Requis par Synapse : collation C + encodage UTF8 (cf. doc officielle Synapse)
+            - name: POSTGRES_INITDB_ARGS
+              value: "--encoding=UTF8 --locale=C"
+            - name: TZ
+              value: Europe/Paris
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-q", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-q", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: matrix-postgres-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: matrix
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synapse
+  namespace: matrix
+  labels:
+    app: synapse
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: synapse
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: synapse
+    spec:
+      initContainers:
+        - name: config-init
+          image: matrixdotorg/synapse:v1.159.0@sha256:b1a1e1ab727ed567ceb7660b52149cbeb973348edf696e263454f0261d8153bb
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              sed \
+                -e "s#__DB_USER__#${DB_USER}#g" \
+                -e "s#__DB_PASSWORD__#${DB_PASSWORD}#g" \
+                -e "s#__DB_NAME__#${DB_NAME}#g" \
+                -e "s#__REGISTRATION_SHARED_SECRET__#${REGISTRATION_SHARED_SECRET}#g" \
+                -e "s#__MACAROON_SECRET_KEY__#${MACAROON_SECRET_KEY}#g" \
+                -e "s#__FORM_SECRET__#${FORM_SECRET}#g" \
+                /template/homeserver.yaml > /data/homeserver.yaml
+              cp /template/log.config /data/log.config
+              if [ ! -f /data/matrix.axtazer.me.signing.key ]; then
+                python -m synapse.app.homeserver -c /data/homeserver.yaml --generate-keys
+              fi
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: postgres-user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: postgres-password
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: postgres-db
+            - name: REGISTRATION_SHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: registration-shared-secret
+            - name: MACAROON_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: macaroon-secret-key
+            - name: FORM_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: form-secret
+          volumeMounts:
+            - name: config-template
+              mountPath: /template
+            - name: data
+              mountPath: /data
+      containers:
+        - name: synapse
+          image: matrixdotorg/synapse:v1.159.0@sha256:b1a1e1ab727ed567ceb7660b52149cbeb973348edf696e263454f0261d8153bb
+          command: ["python", "-m", "synapse.app.homeserver", "-c", "/data/homeserver.yaml"]
+          ports:
+            - containerPort: 8008
+          env:
+            - name: TZ
+              value: Europe/Paris
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8008
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8008
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 3
+      volumes:
+        - name: config-template
+          configMap:
+            name: matrix-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: matrix-synapse-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: synapse
+  namespace: matrix
+spec:
+  selector:
+    app: synapse
+  ports:
+    - port: 8008
+      targetPort: 8008

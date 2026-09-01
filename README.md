@@ -48,6 +48,9 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 ├── jellyfin/
 │   ├── jellyfin.yaml              # Jellyfin
 │   └── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
+├── matrix/
+│   ├── matrix.yaml                 # Synapse + PostgreSQL + secrets 1Password + PV/PVC
+│   └── routes.yaml                 # HTTPRoute + Ingress cloudflare-tunnel
 ├── media-stack/                   # Stack *arr (namespace media)
 │   ├── secrets.yaml               #   OnePasswordItem mullvad-credentials
 │   ├── prowlarr.yaml              #   Indexers — prowlarr.axtazer.me
@@ -226,6 +229,7 @@ Tous les secrets sont dans le vault `k8s-home` sur 1Password et injectés automa
 | `n8n-db` | `n8n-db-secrets` | `n8n` |
 | `mullvad-credentials` | `mullvad-credentials` | `media` |
 | `authentik` | `authentik-secret` | `authentik` |
+| `matrix` | `matrix-secrets` | `matrix` |
 
 ## Secrets gérés manuellement
 
@@ -280,6 +284,8 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | Authentik SSO | `authentik` | `https://auth.axtazer.me` | `http://authentik-server.authentik.svc.cluster.local:9000` | `2026.5.3` | Provider SSO OIDC pour les autres apps |
 | PostgreSQL (authentik) | `authentik` | interne uniquement | `http://postgresql.authentik.svc.cluster.local:5432` | `16` | |
 | ntfy | `ntfy` | `https://ntfy.axtazer.me` | `http://ntfy.ntfy.svc.cluster.local:80` | `v2.25.0` (digest pinné) | Auth activée, `deny-all` par défaut |
+| Matrix Synapse | `matrix` | `https://matrix.axtazer.me` | `http://synapse.matrix.svc.cluster.local:8008` | `v1.159.0` (digest pinné) | Homeserver privé, fédération fermée, inscriptions fermées (créer les comptes via `register_new_matrix_user`) |
+| PostgreSQL (matrix) | `matrix` | interne uniquement | `http://postgres.matrix.svc.cluster.local:5432` | `16` | |
 | cloudflare-tunnel-ingress-controller | `cloudflare-tunnel-ingress-controller` | — | — | `0.0.23` | Gère routes Cloudflare via Ingress K8s |
 | **[archivé 2026-06-27]** AlterTrack | — | `https://altertrack.castaldo.fr` | — | — | Manifests dans `_archived/altertrack/` |
 | **[archivé 2026-06-27]** PageBleue | — | `https://pagebleue.castaldo.fr` | — | — | Manifests dans `_archived/etudes/` |
@@ -301,6 +307,7 @@ Les images Docker sont suivies et mises à jour automatiquement via Renovate (co
 | `ghcr.io/shlinkio/shlink` + `shlink-web-client` | Automerge digest/patch/minor |
 | `ghcr.io/goauthentik/server` | Automerge digest/patch/minor — major manuel (migrations BDD) |
 | `binwiederhier/ntfy` | Automerge digest/patch/minor — major manuel |
+| `matrixdotorg/synapse` | Manuel — review obligatoire (jamais d'automerge) |
 | `postgres` (shlink, n8n, authentik) | Automerge digest — major bloqué (migrations irréversibles) |
 | `n8nio/n8n` | Automerge digest/patch/minor — major manuel |
 | `busybox` | Automerge digest/patch/minor |

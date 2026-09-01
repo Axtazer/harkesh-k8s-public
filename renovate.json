@@ -23,7 +23,8 @@
       "/media-stack/.+\\.yaml$/",
       "/n8n/.+\\.yaml$/",
       "/authentik/.+\\.yaml$/",
-      "/ntfy/.+\\.yaml$/"
+      "/ntfy/.+\\.yaml$/",
+      "/matrix/.+\\.yaml$/"
     ]
   },
   "customManagers": [
@@ -472,6 +473,21 @@
       "labels": [
         "ntfy",
         "automerge"
+      ]
+    },
+    {
+      "description": "Matrix Synapse — toujours manuel, jamais automerge (homeserver, données de chat)",
+      "matchPackageNames": [
+        "matrixdotorg/synapse"
+      ],
+      "groupName": "matrix",
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "matrix",
+        "manual-review"
       ]
     },
     {

@@ -74,7 +74,7 @@ spec:
               ip link add wg0 type wireguard
               ip addr add 10.10.0.2/24 dev wg0
               wg set wg0 private-key /etc/wg-secret/private-key \
-                peer Zm2KcT6LmC4ZBmyyrzRajTUay50/ff2Av4EK3RqNR30= \
+                peer FchotVNs7Ygv+ZQZ3RdG9V+9sNTmFBR1wX2sErn1rHk= \
                 endpoint 151.240.100.150:51820 \
                 allowed-ips 10.10.0.1/32 \
                 persistent-keepalive 25

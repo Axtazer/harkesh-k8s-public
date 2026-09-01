@@ -40,8 +40,13 @@ spec:
     - host: matrix.axtazer.me
       http:
         paths:
+          # pathType Exact non supporté par ce controller (strrl.dev/
+          # cloudflare-tunnel-ingress-controller) -- il rejette alors TOUT
+          # l'Ingress (plus aucune route programmée, DNS cassé). Prefix sur ce
+          # chemin précis reste sans risque : rien d'autre ne matche sous
+          # /.well-known/matrix/client/*, et il précède le "/" plus générique.
           - path: /.well-known/matrix/client
-            pathType: Exact
+            pathType: Prefix
             backend:
               service:
                 name: matrix-wellknown

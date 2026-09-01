@@ -128,9 +128,11 @@ data:
     trusted_key_servers: []
     suppress_key_server_warning: true
 
-    # Inscriptions fermées — créer les comptes via :
+    # Inscriptions ouvertes uniquement avec un token (généré via l'API admin, voir README) —
+    # sinon toujours possible de créer un compte en CLI :
     #   kubectl exec -it -n matrix deploy/synapse -- register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008
-    enable_registration: false
+    enable_registration: true
+    registration_requires_token: true
     registration_shared_secret: "__REGISTRATION_SHARED_SECRET__"
 
     report_stats: false

@@ -284,12 +284,34 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | Authentik SSO | `authentik` | `https://auth.axtazer.me` | `http://authentik-server.authentik.svc.cluster.local:9000` | `2026.5.3` | Provider SSO OIDC pour les autres apps |
 | PostgreSQL (authentik) | `authentik` | interne uniquement | `http://postgresql.authentik.svc.cluster.local:5432` | `16` | |
 | ntfy | `ntfy` | `https://ntfy.axtazer.me` | `http://ntfy.ntfy.svc.cluster.local:80` | `v2.25.0` (digest pinné) | Auth activée, `deny-all` par défaut |
-| Matrix Synapse | `matrix` | `https://matrix.axtazer.me` | `http://synapse.matrix.svc.cluster.local:8008` | `v1.159.0` (digest pinné) | Homeserver privé, fédération fermée, inscriptions fermées (créer les comptes via `register_new_matrix_user`) |
+| Matrix Synapse | `matrix` | `https://matrix.axtazer.me` | `http://synapse.matrix.svc.cluster.local:8008` | `v1.159.0` (digest pinné) | Homeserver privé, fédération fermée, inscriptions ouvertes sur token uniquement (voir ci-dessous) |
 | PostgreSQL (matrix) | `matrix` | interne uniquement | `http://postgres.matrix.svc.cluster.local:5432` | `16` | |
 | cloudflare-tunnel-ingress-controller | `cloudflare-tunnel-ingress-controller` | — | — | `0.0.23` | Gère routes Cloudflare via Ingress K8s |
 | **[archivé 2026-06-27]** AlterTrack | — | `https://altertrack.castaldo.fr` | — | — | Manifests dans `_archived/altertrack/` |
 | **[archivé 2026-06-27]** PageBleue | — | `https://pagebleue.castaldo.fr` | — | — | Manifests dans `_archived/etudes/` |
 | **[archivé 2026-07-05]** BetterStack collector | — | — | — | — | Manifests dans `_archived/betterstack-collector/` |
+
+### Matrix — générer un token d'inscription
+
+Les inscriptions sont ouvertes uniquement avec un token (`registration_requires_token: true`).
+Un compte admin (créé via `register_new_matrix_user -a`) est nécessaire pour en générer un.
+
+```bash
+# 1. Login pour récupérer un access_token (mot de passe saisi sans écho, jamais en clair dans l'historique)
+read -s -p "Password admin: " ADMIN_PASSWORD; echo
+ACCESS_TOKEN=$(curl -s https://matrix.axtazer.me/_matrix/client/v3/login \
+  -d "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\",\"user\":\"axtazer\"},\"password\":\"${ADMIN_PASSWORD}\"}" \
+  | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+unset ADMIN_PASSWORD
+
+# 2. Créer un token (ici : 5 utilisations max, sans expiration — ajuster selon besoin)
+curl -s -X POST https://matrix.axtazer.me/_synapse/admin/v1/registration_tokens/new \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -d '{"uses_allowed": 5, "expiry_time": null}'
+```
+
+Le champ `"token"` de la réponse est à donner aux personnes invitées — elles le collent dans
+Element au moment de l'inscription (`matrix.axtazer.me` comme homeserver).
 
 ## Renovate
 

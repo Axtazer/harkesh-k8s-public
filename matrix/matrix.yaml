@@ -100,6 +100,14 @@ data:
         resources:
           - names: [client]
             compress: false
+          # "federation" ici n'ouvre PAS la fédération inter-serveurs (toujours
+          # bloquée par federation_domain_whitelist: [] ci-dessous) -- c'est
+          # requis uniquement pour /_matrix/federation/v1/openid/userinfo, que
+          # lk-jwt-service (LiveKit/Element Call) utilise pour vérifier les tokens
+          # OpenID de nos propres utilisateurs. Cet endpoint n'est pas filtré par
+          # le whitelist (pas de confiance inter-serveurs impliquée).
+          - names: [federation]
+            compress: false
 
     database:
       name: psycopg2
@@ -119,9 +127,10 @@ data:
     max_image_pixels: 32M
     dynamic_thumbnails: false
 
-    # Homeserver privé — pas de fédération avec d'autres serveurs Matrix.
-    # (le listener n'expose déjà que la resource "client" ci-dessus ; ceci ferme
-    # aussi l'entrée fédération au niveau applicatif, en défense en profondeur)
+    # Homeserver privé — pas de fédération avec d'autres serveurs Matrix, malgré la
+    # resource "federation" activée sur le listener ci-dessus (nécessaire seulement
+    # pour l'OpenID userinfo de LiveKit, cf. commentaire associé). C'est ce whitelist
+    # vide qui bloque réellement toute fédération inter-serveurs.
     federation_domain_whitelist: []
     allow_public_rooms_over_federation: false
     allow_public_rooms_without_auth: false

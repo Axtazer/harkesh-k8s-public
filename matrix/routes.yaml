@@ -23,6 +23,13 @@ spec:
           port: 8080
     - matches:
         - path:
+            type: Exact
+            value: /.well-known/matrix/server
+      backendRefs:
+        - name: matrix-wellknown
+          port: 8080
+    - matches:
+        - path:
             type: PathPrefix
             value: /
       backendRefs:
@@ -46,6 +53,13 @@ spec:
           # chemin précis reste sans risque : rien d'autre ne matche sous
           # /.well-known/matrix/client/*, et il précède le "/" plus générique.
           - path: /.well-known/matrix/client
+            pathType: Prefix
+            backend:
+              service:
+                name: matrix-wellknown
+                port:
+                  number: 8080
+          - path: /.well-known/matrix/server
             pathType: Prefix
             backend:
               service:

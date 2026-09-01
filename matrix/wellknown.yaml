@@ -1,11 +1,21 @@
 ---
-# Sert /.well-known/matrix/client sur matrix.axtazer.me (voir matrix/routes.yaml pour
-# le rule qui route ce chemin ici plutôt que vers Synapse). Nécessaire pour qu'Element
-# découvre le service LiveKit (MSC4143 rtc_foci) pour Element Call.
+# Sert /.well-known/matrix/{client,server} sur matrix.axtazer.me (voir matrix/routes.yaml
+# pour les rules qui routent ces chemins ici plutôt que vers Synapse).
+#
+# client : nécessaire pour qu'Element découvre le service LiveKit (MSC4143 rtc_foci)
+#          pour Element Call.
+# server : nécessaire pour la découverte fédération standard de Matrix (utilisée par
+#          lk-jwt-service pour vérifier les tokens OpenID via
+#          /_matrix/federation/v1/openid/userinfo) -- sans ce fichier, les clients de
+#          fédération essaient de se connecter en direct sur matrix.axtazer.me:8448
+#          (port jamais exposé) au lieu de passer par le port 443 déjà proxié par le
+#          Cloudflare Tunnel. "m.server": "...:443" les redirige sur ce port.
+# (Ceci ne rouvre PAS la fédération inter-serveurs -- federation_domain_whitelist: []
+# dans matrix.yaml continue de la bloquer, cf. commentaire associé.)
 #
 # nginx (pas busybox httpd) : requis pour ajouter le header CORS
 # Access-Control-Allow-Origin, exigé par le spec Matrix -- les clients web (Element)
-# fetchent ce endpoint en cross-origin depuis un domaine différent, et le navigateur
+# fetchent ces endpoints en cross-origin depuis un domaine différent, et le navigateur
 # bloque silencieusement la réponse sans ce header (curl, lui, ne le voit pas -- d'où
 # un faux positif si on ne teste qu'au curl).
 apiVersion: v1
@@ -26,6 +36,10 @@ data:
         }
       ]
     }
+  server.json: |
+    {
+      "m.server": "matrix.axtazer.me:443"
+    }
   nginx.conf: |
     worker_processes 1;
     events {
@@ -38,6 +52,11 @@ data:
           default_type application/json;
           add_header Access-Control-Allow-Origin * always;
           alias /www/client.json;
+        }
+        location = /.well-known/matrix/server {
+          default_type application/json;
+          add_header Access-Control-Allow-Origin * always;
+          alias /www/server.json;
         }
       }
     }
@@ -72,6 +91,9 @@ spec:
             - name: config
               mountPath: /www/client.json
               subPath: client.json
+            - name: config
+              mountPath: /www/server.json
+              subPath: server.json
           resources:
             requests:
               cpu: 10m

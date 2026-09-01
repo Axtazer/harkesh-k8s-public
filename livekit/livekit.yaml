@@ -62,30 +62,6 @@ spec:
         app: livekit
     spec:
       initContainers:
-        # Monte l'interface WireGuard UNIQUEMENT dans le netns de ce pod (pas sur
-        # l'hôte harkesh) — relaie le flux média UDP/TCP vers le VPS 151.240.100.150,
-        # qui le redirige (DNAT) depuis les ports publics 7881/tcp + 7882/udp.
-        - name: wg-setup
-          image: lscr.io/linuxserver/wireguard:latest@sha256:917277d4b3f490d96120c56279c3fd2bdd1f8081e631921bb7c3fec02d3a0d1b
-          command: ["sh", "-c"]
-          args:
-            - |
-              set -eu
-              ip link add wg0 type wireguard
-              ip addr add 10.10.0.2/24 dev wg0
-              wg set wg0 private-key /etc/wg-secret/private-key \
-                peer FchotVNs7Ygv+ZQZ3RdG9V+9sNTmFBR1wX2sErn1rHk= \
-                endpoint 151.240.100.150:51820 \
-                allowed-ips 10.10.0.1/32 \
-                persistent-keepalive 25
-              ip link set mtu 1400 up dev wg0
-          securityContext:
-            capabilities:
-              add: ["NET_ADMIN"]
-          volumeMounts:
-            - name: wg-secret
-              mountPath: /etc/wg-secret
-              readOnly: true
         # Injecte l'API key/secret LiveKit dans la config (depuis le secret 1Password)
         - name: config-init
           image: busybox:latest@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
@@ -114,6 +90,46 @@ spec:
             - name: data
               mountPath: /data
       containers:
+        # Sidecar qui monte (et surveille/recrée si besoin) l'interface WireGuard
+        # UNIQUEMENT dans le netns de ce pod (pas sur l'hôte harkesh) — relaie le flux
+        # média UDP/TCP vers le VPS 151.240.100.150, qui le redirige (DNAT) depuis les
+        # ports publics 7881/tcp + 7882/udp.
+        # Tourne en continu plutôt qu'en initContainer : Cilium fait un passage de
+        # reconfiguration du netns juste après le démarrage du pod qui balaie les
+        # interfaces qu'il ne connaît pas — un initContainer qui crée wg0 puis termine
+        # se fait donc effacer avant même que le conteneur livekit ne démarre.
+        - name: wg-tunnel
+          image: lscr.io/linuxserver/wireguard:latest@sha256:917277d4b3f490d96120c56279c3fd2bdd1f8081e631921bb7c3fec02d3a0d1b
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              while true; do
+                if ! ip link show wg0 >/dev/null 2>&1; then
+                  ip link add wg0 type wireguard
+                  ip addr add 10.10.0.2/24 dev wg0
+                  wg set wg0 private-key /etc/wg-secret/private-key \
+                    peer FchotVNs7Ygv+ZQZ3RdG9V+9sNTmFBR1wX2sErn1rHk= \
+                    endpoint 151.240.100.150:51820 \
+                    allowed-ips 10.10.0.1/32 \
+                    persistent-keepalive 25
+                  ip link set mtu 1400 up dev wg0
+                fi
+                sleep 10
+              done
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: wg-secret
+              mountPath: /etc/wg-secret
+              readOnly: true
         - name: livekit
           image: livekit/livekit-server:v1.13.6@sha256:468c53f7a2520d3d202064622eedbf35b5eb411d1079b61ce0ff30a81fe2f72c
           args: ["--config", "/data/config.yaml"]

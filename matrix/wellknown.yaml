@@ -1,14 +1,20 @@
 ---
 # Sert /.well-known/matrix/client sur matrix.axtazer.me (voir matrix/routes.yaml pour
-# le rule HTTPRoute qui route ce chemin exact ici plutôt que vers Synapse). Nécessaire
-# pour qu'Element découvre le service LiveKit (MSC4143 rtc_foci) pour Element Call.
+# le rule qui route ce chemin ici plutôt que vers Synapse). Nécessaire pour qu'Element
+# découvre le service LiveKit (MSC4143 rtc_foci) pour Element Call.
+#
+# nginx (pas busybox httpd) : requis pour ajouter le header CORS
+# Access-Control-Allow-Origin, exigé par le spec Matrix -- les clients web (Element)
+# fetchent ce endpoint en cross-origin depuis un domaine différent, et le navigateur
+# bloque silencieusement la réponse sans ce header (curl, lui, ne le voit pas -- d'où
+# un faux positif si on ne teste qu'au curl).
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: matrix-wellknown
   namespace: matrix
 data:
-  client: |
+  client.json: |
     {
       "m.homeserver": {
         "base_url": "https://matrix.axtazer.me"
@@ -19,6 +25,21 @@ data:
           "livekit_service_url": "https://livekit-jwt.axtazer.me"
         }
       ]
+    }
+  nginx.conf: |
+    worker_processes 1;
+    events {
+      worker_connections 1024;
+    }
+    http {
+      server {
+        listen 8080;
+        location = /.well-known/matrix/client {
+          default_type application/json;
+          add_header Access-Control-Allow-Origin * always;
+          alias /www/client.json;
+        }
+      }
     }
 ---
 apiVersion: apps/v1
@@ -40,20 +61,17 @@ spec:
         app: matrix-wellknown
     spec:
       containers:
-        - name: httpd
-          image: busybox:latest@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
-          command: ["sh", "-c"]
-          args:
-            - |
-              set -eu
-              mkdir -p /www/.well-known/matrix
-              cp /template/client /www/.well-known/matrix/client
-              httpd -f -v -p 8080 -h /www
+        - name: nginx
+          image: nginx:alpine@sha256:1f25fedd50aec27413031afb3a4f8ee4effcc9d843f6a76e81bfa92245ac5c06
           ports:
             - containerPort: 8080
           volumeMounts:
-            - name: config-template
-              mountPath: /template
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: config
+              mountPath: /www/client.json
+              subPath: client.json
           resources:
             requests:
               cpu: 10m
@@ -61,7 +79,7 @@ spec:
             limits:
               memory: 32Mi
       volumes:
-        - name: config-template
+        - name: config
           configMap:
             name: matrix-wellknown
 ---

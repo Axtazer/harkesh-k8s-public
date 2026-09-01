@@ -28,7 +28,8 @@ harkesh-k8s/
 ├── flo-pro/             # flo-pro (prod + dev)
 ├── infra/cloudflared/   # Cloudflare Tunnel
 ├── jellyfin/            # Jellyfin (namespace media)
-├── matrix/              # Matrix Synapse (homeserver privé) + PostgreSQL
+├── livekit/             # SFU Element Call — relais média via tunnel WireGuard vers VPS
+├── matrix/              # Matrix Synapse (homeserver privé) + PostgreSQL + well-known
 ├── media-stack/         # Stack *arr (namespace media)
 │   ├── secrets.yaml     #   OnePasswordItem mullvad-credentials
 │   ├── prowlarr.yaml    #   Indexers — prowlarr.axtazer.me

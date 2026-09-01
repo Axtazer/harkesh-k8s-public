@@ -1,0 +1,78 @@
+---
+# Sert /.well-known/matrix/client sur matrix.axtazer.me (voir matrix/routes.yaml pour
+# le rule HTTPRoute qui route ce chemin exact ici plutôt que vers Synapse). Nécessaire
+# pour qu'Element découvre le service LiveKit (MSC4143 rtc_foci) pour Element Call.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matrix-wellknown
+  namespace: matrix
+data:
+  client: |
+    {
+      "m.homeserver": {
+        "base_url": "https://matrix.axtazer.me"
+      },
+      "org.matrix.msc4143.rtc_foci": [
+        {
+          "type": "livekit",
+          "livekit_service_url": "https://livekit-jwt.axtazer.me"
+        }
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matrix-wellknown
+  namespace: matrix
+  labels:
+    app: matrix-wellknown
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: matrix-wellknown
+  template:
+    metadata:
+      labels:
+        app: matrix-wellknown
+    spec:
+      containers:
+        - name: httpd
+          image: busybox:latest@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              mkdir -p /www/.well-known/matrix
+              cp /template/client /www/.well-known/matrix/client
+              httpd -f -v -p 8080 -h /www
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: config-template
+              mountPath: /template
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+      volumes:
+        - name: config-template
+          configMap:
+            name: matrix-wellknown
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: matrix-wellknown
+  namespace: matrix
+spec:
+  selector:
+    app: matrix-wellknown
+  ports:
+    - port: 8080
+      targetPort: 8080

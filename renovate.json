@@ -24,7 +24,8 @@
       "/n8n/.+\\.yaml$/",
       "/authentik/.+\\.yaml$/",
       "/ntfy/.+\\.yaml$/",
-      "/matrix/.+\\.yaml$/"
+      "/matrix/.+\\.yaml$/",
+      "/livekit/.+\\.yaml$/"
     ]
   },
   "customManagers": [
@@ -487,6 +488,22 @@
       ],
       "labels": [
         "matrix",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "LiveKit (SFU Element Call) + lk-jwt-service — toujours manuel, jamais automerge (relais réseau critique, tunnel WireGuard)",
+      "matchPackageNames": [
+        "livekit/livekit-server",
+        "ghcr.io/element-hq/lk-jwt-service"
+      ],
+      "groupName": "livekit",
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "livekit",
         "manual-review"
       ]
     },

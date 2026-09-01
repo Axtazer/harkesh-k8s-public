@@ -48,8 +48,13 @@ Manifests Kubernetes pour le homelab. Les secrets sont gérés via **1Password C
 ├── jellyfin/
 │   ├── jellyfin.yaml              # Jellyfin
 │   └── routes.yaml                # HTTPRoute + Ingress cloudflare-tunnel
+├── livekit/                        # SFU Element Call (appels audio/vidéo Matrix)
+│   ├── livekit.yaml                #   LiveKit server + sidecar WireGuard (relais VPS)
+│   ├── jwt-service.yaml            #   lk-jwt-service (auth Element Call <-> LiveKit)
+│   └── routes.yaml                 #   HTTPRoute + Ingress livekit.axtazer.me + livekit-jwt.axtazer.me
 ├── matrix/
 │   ├── matrix.yaml                 # Synapse + PostgreSQL + secrets 1Password + PV/PVC
+│   ├── wellknown.yaml               #   /.well-known/matrix/client (découverte LiveKit)
 │   └── routes.yaml                 # HTTPRoute + Ingress cloudflare-tunnel
 ├── media-stack/                   # Stack *arr (namespace media)
 │   ├── secrets.yaml               #   OnePasswordItem mullvad-credentials
@@ -230,6 +235,7 @@ Tous les secrets sont dans le vault `k8s-home` sur 1Password et injectés automa
 | `mullvad-credentials` | `mullvad-credentials` | `media` |
 | `authentik` | `authentik-secret` | `authentik` |
 | `matrix` | `matrix-secrets` | `matrix` |
+| `livekit` | `livekit-secrets` | `livekit` |
 
 ## Secrets gérés manuellement
 
@@ -286,6 +292,9 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | ntfy | `ntfy` | `https://ntfy.axtazer.me` | `http://ntfy.ntfy.svc.cluster.local:80` | `v2.25.0` (digest pinné) | Auth activée, `deny-all` par défaut |
 | Matrix Synapse | `matrix` | `https://matrix.axtazer.me` | `http://synapse.matrix.svc.cluster.local:8008` | `v1.159.0` (digest pinné) | Homeserver privé, fédération fermée, inscriptions ouvertes sur token uniquement (voir ci-dessous) |
 | PostgreSQL (matrix) | `matrix` | interne uniquement | `http://postgres.matrix.svc.cluster.local:5432` | `16` | |
+| Matrix well-known | `matrix` | `https://matrix.axtazer.me/.well-known/matrix/client` | — | — | Sert la découverte du service LiveKit (MSC4143) |
+| LiveKit (SFU Element Call) | `livekit` | `wss://livekit.axtazer.me` | `http://livekit-signaling.livekit.svc.cluster.local:7880` | `v1.13.6` (digest pinné) | Signaling via Cloudflare Tunnel ; média (UDP/TCP) relayé via tunnel WireGuard → VPS `151.240.100.150` (voir section "Relais réseau LiveKit" ci-dessous) |
+| lk-jwt-service | `livekit` | `https://livekit-jwt.axtazer.me` | `http://lk-jwt-service.livekit.svc.cluster.local:8080` | `latest` (digest pinné, pas de release semver upstream) | Émet les jetons LiveKit pour Element Call, homeserver autorisé : `matrix.axtazer.me` |
 | cloudflare-tunnel-ingress-controller | `cloudflare-tunnel-ingress-controller` | — | — | `0.0.23` | Gère routes Cloudflare via Ingress K8s |
 | **[archivé 2026-06-27]** AlterTrack | — | `https://altertrack.castaldo.fr` | — | — | Manifests dans `_archived/altertrack/` |
 | **[archivé 2026-06-27]** PageBleue | — | `https://pagebleue.castaldo.fr` | — | — | Manifests dans `_archived/etudes/` |
@@ -313,6 +322,53 @@ curl -s -X POST https://matrix.axtazer.me/_synapse/admin/v1/registration_tokens/
 Le champ `"token"` de la réponse est à donner aux personnes invitées — elles le collent dans
 Element au moment de l'inscription (`matrix.axtazer.me` comme homeserver).
 
+### LiveKit — relais réseau via VPS (Element Call)
+
+Le Cloudflare Tunnel (HTTP/S uniquement) ne peut pas transporter le flux média WebRTC
+(UDP) de LiveKit. `harkesh` étant derrière NAT sans IP publique routable, le flux média
+est relayé via un tunnel **WireGuard** vers un VPS avec IP publique :
+
+```
+Participant  ──UDP/TCP──▶  VPS (151.240.100.150)  ──WireGuard──▶  pod livekit (10.10.0.2)
+                            DNAT 7882/udp, 7881/tcp
+```
+
+- **Signaling** (WebSocket, port 7880) passe normalement par le Cloudflare Tunnel comme
+  le reste — pas besoin du VPS pour ça.
+- **Média** (UDP 7882 + TCP ICE 7881) : le VPS fait du DNAT + MASQUERADE (`iptables`,
+  `/etc/ufw/before.rules`) vers `10.10.0.2` à travers le tunnel WireGuard.
+- L'interface WireGuard tourne **dans le netns du pod `livekit`** (initContainer
+  `wg-setup`, capability `NET_ADMIN`), pas sur l'hôte `harkesh` — évite toute
+  interférence avec le routage de la machine (cf. incident du 2026-09-01 où WireGuard
+  sur l'hôte cassait `cloudflared`).
+- `config.yaml` de LiveKit force `node_ip: "151.240.100.150"` (IP du VPS) — c'est cette
+  IP que LiveKit annonce aux clients comme candidat ICE, pas celle du pod/cluster.
+
+**Config VPS** (`151.240.100.150`, Debian 13, Vexcloud) — `/etc/wireguard/wg0.conf` :
+```
+[Interface]
+Address = 10.10.0.1/24
+ListenPort = 51820
+PrivateKey = <clé privée VPS>
+
+[Peer]
+# pod livekit
+PublicKey = <clé publique du pod, voir ci-dessous>
+AllowedIPs = 10.10.0.2/32
+```
+
+Ports ouverts côté VPS (`ufw`) : `51820/udp` (WireGuard), `7882/udp` + `7881/tcp` (média,
+DNAT vers `10.10.0.2`). `net.ipv4.ip_forward=1` + `DEFAULT_FORWARD_POLICY="ACCEPT"`.
+
+**Régénérer la clé WireGuard du pod** (si compromise/perdue) :
+```bash
+wg genkey | tee privatekey | wg pubkey  # noter la clé publique affichée
+```
+1. Mettre la clé **privée** dans le champ `wg-private-key` de l'item 1Password `livekit`
+2. Mettre à jour le `PublicKey` du peer `# pod livekit` dans `/etc/wireguard/wg0.conf`
+   sur le VPS, puis `sudo systemctl restart wg-quick@wg0`
+3. Redémarrer le pod : `kubectl -n livekit rollout restart deploy/livekit`
+
 ## Renovate
 
 Les images Docker sont suivies et mises à jour automatiquement via Renovate (config dans `renovate.json`).
@@ -330,6 +386,7 @@ Les images Docker sont suivies et mises à jour automatiquement via Renovate (co
 | `ghcr.io/goauthentik/server` | Automerge digest/patch/minor — major manuel (migrations BDD) |
 | `binwiederhier/ntfy` | Automerge digest/patch/minor — major manuel |
 | `matrixdotorg/synapse` | Manuel — review obligatoire (jamais d'automerge) |
+| `livekit/livekit-server` + `ghcr.io/element-hq/lk-jwt-service` | Manuel — review obligatoire (jamais d'automerge, relais réseau critique) |
 | `postgres` (shlink, n8n, authentik) | Automerge digest — major bloqué (migrations irréversibles) |
 | `n8nio/n8n` | Automerge digest/patch/minor — major manuel |
 | `busybox` | Automerge digest/patch/minor |

@@ -1,0 +1,173 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: livekit
+  labels:
+    shared-gateway-access: "true"
+---
+# Secrets requis dans le vault k8s-home, item "livekit" :
+#   api-key, api-secret   (partagés entre livekit-server et lk-jwt-service —
+#                           générer : openssl rand -hex 16 / openssl rand -hex 32)
+#   wg-private-key        (clé privée WireGuard du pod — voir README pour la génération
+#                           et l'ajout de la clé publique correspondante côté VPS relais)
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: livekit-secrets
+  namespace: livekit
+spec:
+  itemPath: "vaults/k8s-home/items/livekit"
+
+---
+# config.yaml est un template : __LIVEKIT_API_KEY__/__LIVEKIT_API_SECRET__ sont
+# substitués par l'initContainer config-init à partir du secret livekit-secrets.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: livekit-config
+  namespace: livekit
+data:
+  config.yaml: |
+    port: 7880
+    rtc:
+      tcp_port: 7881
+      udp_port: 7882
+      use_external_ip: false
+      # IP publique du VPS relais (WireGuard) — c'est elle que LiveKit annonce
+      # aux clients comme candidat ICE, pas l'IP interne du pod/cluster.
+      node_ip: "151.240.100.150"
+    keys:
+      __LIVEKIT_API_KEY__: __LIVEKIT_API_SECRET__
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: livekit
+  namespace: livekit
+  labels:
+    app: livekit
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: livekit
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: livekit
+    spec:
+      initContainers:
+        # Monte l'interface WireGuard UNIQUEMENT dans le netns de ce pod (pas sur
+        # l'hôte harkesh) — relaie le flux média UDP/TCP vers le VPS 151.240.100.150,
+        # qui le redirige (DNAT) depuis les ports publics 7881/tcp + 7882/udp.
+        - name: wg-setup
+          image: lscr.io/linuxserver/wireguard:latest@sha256:917277d4b3f490d96120c56279c3fd2bdd1f8081e631921bb7c3fec02d3a0d1b
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              ip link add wg0 type wireguard
+              ip addr add 10.10.0.2/24 dev wg0
+              wg set wg0 private-key /etc/wg-secret/private-key \
+                peer Zm2KcT6LmC4ZBmyyrzRajTUay50/ff2Av4EK3RqNR30= \
+                endpoint 151.240.100.150:51820 \
+                allowed-ips 10.10.0.1/32 \
+                persistent-keepalive 25
+              ip link set mtu 1400 up dev wg0
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: wg-secret
+              mountPath: /etc/wg-secret
+              readOnly: true
+        # Injecte l'API key/secret LiveKit dans la config (depuis le secret 1Password)
+        - name: config-init
+          image: busybox:latest@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              sed \
+                -e "s#__LIVEKIT_API_KEY__#${LIVEKIT_API_KEY}#g" \
+                -e "s#__LIVEKIT_API_SECRET__#${LIVEKIT_API_SECRET}#g" \
+                /template/config.yaml > /data/config.yaml
+          env:
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: livekit-secrets
+                  key: api-key
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: livekit-secrets
+                  key: api-secret
+          volumeMounts:
+            - name: config-template
+              mountPath: /template
+            - name: data
+              mountPath: /data
+      containers:
+        - name: livekit
+          image: livekit/livekit-server:v1.13.6@sha256:468c53f7a2520d3d202064622eedbf35b5eb411d1079b61ce0ff30a81fe2f72c
+          args: ["--config", "/data/config.yaml"]
+          ports:
+            - name: signaling
+              containerPort: 7880
+            - name: rtc-tcp
+              containerPort: 7881
+            - name: rtc-udp
+              containerPort: 7882
+              protocol: UDP
+          env:
+            - name: TZ
+              value: Europe/Paris
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          readinessProbe:
+            tcpSocket:
+              port: 7880
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 7880
+            initialDelaySeconds: 20
+            periodSeconds: 15
+      volumes:
+        - name: wg-secret
+          secret:
+            secretName: livekit-secrets
+            items:
+              - key: wg-private-key
+                path: private-key
+        - name: config-template
+          configMap:
+            name: livekit-config
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: livekit-signaling
+  namespace: livekit
+spec:
+  selector:
+    app: livekit
+  ports:
+    - port: 7880
+      targetPort: 7880

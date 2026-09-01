@@ -1,0 +1,67 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lk-jwt-service
+  namespace: livekit
+  labels:
+    app: lk-jwt-service
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: lk-jwt-service
+  template:
+    metadata:
+      labels:
+        app: lk-jwt-service
+    spec:
+      containers:
+        - name: lk-jwt-service
+          image: ghcr.io/element-hq/lk-jwt-service:latest@sha256:822f0c03a3bdd924da92afc2e8ec59de5dda17af42d32e71e11f269c3517abf7
+          ports:
+            - containerPort: 8080
+          env:
+            - name: LIVEKIT_URL
+              value: "wss://livekit.axtazer.me"
+            - name: LIVEKIT_FULL_ACCESS_HOMESERVERS
+              value: "matrix.axtazer.me"
+            - name: LIVEKIT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: livekit-secrets
+                  key: api-key
+            - name: LIVEKIT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: livekit-secrets
+                  key: api-secret
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lk-jwt-service
+  namespace: livekit
+spec:
+  selector:
+    app: lk-jwt-service
+  ports:
+    - port: 8080
+      targetPort: 8080

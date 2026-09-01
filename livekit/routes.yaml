@@ -1,0 +1,78 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: livekit
+  namespace: livekit
+spec:
+  parentRefs:
+    - name: shared-gateway
+      namespace: kube-system
+  hostnames:
+    - livekit.axtazer.me
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: livekit-signaling
+          port: 7880
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: livekit-tunnel
+  namespace: livekit
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: livekit.axtazer.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: livekit-signaling
+                port:
+                  number: 7880
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: livekit-jwt
+  namespace: livekit
+spec:
+  parentRefs:
+    - name: shared-gateway
+      namespace: kube-system
+  hostnames:
+    - livekit-jwt.axtazer.me
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: lk-jwt-service
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: livekit-jwt-tunnel
+  namespace: livekit
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: livekit-jwt.axtazer.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lk-jwt-service
+                port:
+                  number: 8080

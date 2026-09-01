@@ -11,6 +11,16 @@ spec:
   hostnames:
     - matrix.axtazer.me
   rules:
+    # Exact match, priorité sur le PathPrefix "/" ci-dessous (requis par Gateway API :
+    # un match exact l'emporte toujours sur un prefix, quel que soit l'ordre déclaré,
+    # mais on le met en premier pour la lisibilité)
+    - matches:
+        - path:
+            type: Exact
+            value: /.well-known/matrix/client
+      backendRefs:
+        - name: matrix-wellknown
+          port: 8080
     - matches:
         - path:
             type: PathPrefix
@@ -30,6 +40,13 @@ spec:
     - host: matrix.axtazer.me
       http:
         paths:
+          - path: /.well-known/matrix/client
+            pathType: Exact
+            backend:
+              service:
+                name: matrix-wellknown
+                port:
+                  number: 8080
           - path: /
             pathType: Prefix
             backend:

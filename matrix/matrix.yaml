@@ -30,7 +30,7 @@ spec:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   hostPath:
-    path: /mnt/hdd/data/matrix/postgres
+    path: /srv/appdata/matrix/postgres
   claimRef:
     namespace: matrix
     name: matrix-postgres-data-pvc
@@ -55,12 +55,12 @@ metadata:
   name: matrix-synapse-data-pv
 spec:
   capacity:
-    storage: 15Gi
+    storage: 70Gi
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   hostPath:
-    path: /mnt/hdd/data/matrix/synapse
+    path: /srv/appdata/matrix/synapse
   claimRef:
     namespace: matrix
     name: matrix-synapse-data-pvc
@@ -75,7 +75,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 15Gi
+      storage: 70Gi
   volumeName: matrix-synapse-data-pv
 
 ---
@@ -123,7 +123,7 @@ data:
     log_config: "/data/log.config"
 
     media_store_path: /data/media_store
-    max_upload_size: 50M
+    max_upload_size: 10G
     max_image_pixels: 32M
     dynamic_thumbnails: false
 

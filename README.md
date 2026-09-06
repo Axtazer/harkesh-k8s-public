@@ -180,7 +180,7 @@ CLI et connexion repo :
 ```bash
 curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
 chmod +x /usr/local/bin/argocd
-argocd login argocd.castaldo.fr --username admin --grpc-web
+argocd login argocd.mydomain.fr --username admin --grpc-web
 argocd repo add git@github.com:Axtazer/harkesh-k8s.git --ssh-private-key-path ~/.ssh/id_ed25519 --grpc-web
 ```
 
@@ -269,13 +269,13 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | Shlink (raccourcisseur) | `shlink` | `https://go.axtazer.me` | `http://shlink.shlink.svc.cluster.local:80` | `stable` (digest pinné) | |
 | Shlink Web Client | `shlink` | `https://shlink.axtazer.me` | `http://shlink-web.shlink.svc.cluster.local:80` | `stable` (digest pinné) | |
 | PostgreSQL (shlink) | `shlink` | interne uniquement | `http://postgres.shlink.svc.cluster.local:5432` | `17-alpine` | |
-| Flo-pro | `flo-pro` | `https://castaldo.fr` | `http://flo-pro.flo-pro.svc.cluster.local:80` | `main` (digest pinné) | |
-| Dev Flo-pro | `flo-pro` | `https://dev-pro.castaldo.fr` | `http://dev-flo-pro.flo-pro.svc.cluster.local:81` | `dev` (digest pinné) | |
-| ArgoCD | `argocd` | `https://argocd.castaldo.fr` | — | — | |
-| Grafana | `monitoring` | `https://grafana.castaldo.fr` | — | — | config via Helm values victoria-metrics-k8s-stack |
+| Flo-pro | `flo-pro` | `https://mydomain.fr` | `http://flo-pro.flo-pro.svc.cluster.local:80` | `main` (digest pinné) | |
+| Dev Flo-pro | `flo-pro` | `https://dev-pro.mydomain.fr` | `http://dev-flo-pro.flo-pro.svc.cluster.local:81` | `dev` (digest pinné) | |
+| ArgoCD | `argocd` | `https://argocd.mydomain.fr` | — | — | |
+| Grafana | `monitoring` | `https://grafana.mydomain.fr` | — | — | config via Helm values victoria-metrics-k8s-stack |
 | Pelican Panel | `pelican` | `https://panel.axtazer.me` | `http://pelican-panel-svc.pelican.svc.cluster.local:80` | `v1.0.0-beta34` | |
 | Wings | `wings` | `https://node01.axtazer.me` | `http://wings-svc.wings.svc.cluster.local:8443` | `latest` (digest pinné) | |
-| Nextcloud | `nextcloud` | `https://nas.castaldo.fr` | `http://nextcloud.nextcloud.svc.cluster.local:80` | `apache` (digest pinné) | |
+| Nextcloud | `nextcloud` | `https://nas.mydomain.fr` | `http://nextcloud.nextcloud.svc.cluster.local:80` | `apache` (digest pinné) | |
 | MariaDB (nextcloud) | `nextcloud` | interne uniquement | `http://mariadb.nextcloud.svc.cluster.local:3306` | `11` | |
 | Redis (nextcloud) | `nextcloud` | interne uniquement | `http://redis.nextcloud.svc.cluster.local:6379` | `alpine` | |
 | Jellyfin | `media` | `https://stream.axtazer.me` | `http://jellyfin.media.svc.cluster.local:8096` | `10.11.11` | Proxies connus : `10.0.0.0/8` |
@@ -284,7 +284,7 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | Sonarr | `media` | `https://sonarr.axtazer.me` | `http://sonarr.media.svc.cluster.local:8989` | `latest` (linuxserver) | |
 | qBittorrent + Gluetun | `media` | `https://qbit.axtazer.me` | `http://qbittorrent.media.svc.cluster.local:8080` | `latest` (linuxserver + gluetun) | VPN Mullvad WireGuard en sidecar |
 | Seerr | `media` | `https://jellyseerr.axtazer.me` | `http://jellyseerr.media.svc.cluster.local:5055` | `v3.3.0+` (seerr-team) | Fork Jellyseerr |
-| n8n | `n8n` | `https://n8n.castaldo.fr` | `http://n8n.n8n.svc.cluster.local:5678` | `1.122.4+` | |
+| n8n | `n8n` | `https://n8n.mydomain.fr` | `http://n8n.n8n.svc.cluster.local:5678` | `1.122.4+` | |
 | PostgreSQL (n8n) | `n8n` | interne uniquement | `http://postgres.n8n.svc.cluster.local:5432` | `16` | |
 | Axtazia Bot | `bots` | `https://axtazia.axtazer.me/webhook/twitch` | `http://axtazia-bot.bots.svc.cluster.local:3000` | `latest` (digest pinné) | Webhook Twitch EventSub sur port 3000 |
 | Authentik SSO | `authentik` | `https://auth.axtazer.me` | `http://authentik-server.authentik.svc.cluster.local:9000` | `2026.5.3` | Provider SSO OIDC pour les autres apps |
@@ -296,8 +296,8 @@ Tous les accès externes passent par le **Cloudflare Tunnel** — aucun port exp
 | LiveKit (SFU Element Call) | `livekit` | `wss://livekit.axtazer.me` | `http://livekit-signaling.livekit.svc.cluster.local:7880` | `v1.13.6` (digest pinné) | Signaling via Cloudflare Tunnel ; média (UDP/TCP) relayé via tunnel WireGuard → VPS `151.240.100.150` (voir section "Relais réseau LiveKit" ci-dessous) |
 | lk-jwt-service | `livekit` | `https://livekit-jwt.axtazer.me` | `http://lk-jwt-service.livekit.svc.cluster.local:8080` | `latest` (digest pinné, pas de release semver upstream) | Émet les jetons LiveKit pour Element Call, homeserver autorisé : `matrix.axtazer.me` |
 | cloudflare-tunnel-ingress-controller | `cloudflare-tunnel-ingress-controller` | — | — | `0.0.23` | Gère routes Cloudflare via Ingress K8s |
-| **[archivé 2026-06-27]** AlterTrack | — | `https://altertrack.castaldo.fr` | — | — | Manifests dans `_archived/altertrack/` |
-| **[archivé 2026-06-27]** PageBleue | — | `https://pagebleue.castaldo.fr` | — | — | Manifests dans `_archived/etudes/` |
+| **[archivé 2026-06-27]** AlterTrack | — | `https://altertrack.mydomain.fr` | — | — | Manifests dans `_archived/altertrack/` |
+| **[archivé 2026-06-27]** PageBleue | — | `https://pagebleue.mydomain.fr` | — | — | Manifests dans `_archived/etudes/` |
 | **[archivé 2026-07-05]** BetterStack collector | — | — | — | — | Manifests dans `_archived/betterstack-collector/` |
 
 ### Matrix — générer un token d'inscription

@@ -9,7 +9,7 @@ spec:
     - name: shared-gateway
       namespace: kube-system
   hostnames:
-    - n8n.castaldo.fr
+    - n8n.mydomain.fr
   rules:
     - matches:
         - path:
@@ -27,7 +27,7 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
-    - host: n8n.castaldo.fr
+    - host: n8n.mydomain.fr
       http:
         paths:
           - path: /

@@ -15,10 +15,10 @@ main:
   # Converti en variables d'environnement (clés imbriquées jointes par "_" et uppercase)
   config:
     n8n:
-      host: n8n.castaldo.fr
+      host: n8n.mydomain.fr
       protocol: https
       port: 5678
-    webhook_url: https://n8n.castaldo.fr/
+    webhook_url: https://n8n.mydomain.fr/
     db:
       type: postgresdb
       postgresdb:

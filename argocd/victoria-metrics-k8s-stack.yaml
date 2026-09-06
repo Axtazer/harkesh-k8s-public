@@ -71,8 +71,8 @@ spec:
                 plugins: /var/lib/grafana/plugins
                 provisioning: /etc/grafana/provisioning
               server:
-                domain: grafana.castaldo.fr
-                root_url: https://grafana.castaldo.fr
+                domain: grafana.mydomain.fr
+                root_url: https://grafana.mydomain.fr
                 serve_from_sub_path: false
               unified_storage:
                 index_path: /var/lib/grafana-search/bleve

@@ -9,7 +9,7 @@ spec:
     - name: shared-gateway
       namespace: kube-system
   hostnames:
-    - castaldo.fr
+    - mydomain.fr
   rules:
     - matches:
         - path:
@@ -29,7 +29,7 @@ spec:
     - name: shared-gateway
       namespace: kube-system
   hostnames:
-    - dev-pro.castaldo.fr
+    - dev-pro.mydomain.fr
   rules:
     - matches:
         - path:
@@ -47,7 +47,7 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
-    - host: castaldo.fr
+    - host: mydomain.fr
       http:
         paths:
           - path: /
@@ -57,7 +57,7 @@ spec:
                 name: flo-pro
                 port:
                   number: 80
-    - host: dev-pro.castaldo.fr
+    - host: dev-pro.mydomain.fr
       http:
         paths:
           - path: /

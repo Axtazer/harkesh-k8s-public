@@ -7,11 +7,11 @@ Liste des endpoints publics exposés via Cloudflare Tunnel et de leurs health ch
 | App | URL | Health endpoint | Vérification recommandée |
 |---|---|---|---|
 | axtazer.me | https://axtazer.me | `/` | code 200 |
-| flo-pro (prod) | https://castaldo.fr | `/` | code 200 |
+| flo-pro (prod) | https://mydomain.fr | `/` | code 200 |
 | authentik (SSO) | https://auth.axtazer.me | `/` | code 200 — dépendance transverse, si down bloque les apps derrière SSO |
 | jellyfin | https://stream.axtazer.me | `/health` | texte `Healthy` |
-| n8n | https://n8n.castaldo.fr | `/` | code 200 |
-| nextcloud | https://nas.castaldo.fr | `/status.php` | JSON, assertion sur `"installed":true,"maintenance":false` (un 200 seul ne détecte pas le mode maintenance) |
+| n8n | https://n8n.mydomain.fr | `/` | code 200 |
+| nextcloud | https://nas.mydomain.fr | `/status.php` | JSON, assertion sur `"installed":true,"maintenance":false` (un 200 seul ne détecte pas le mode maintenance) |
 
 ## Media stack (namespace media)
 
@@ -32,9 +32,9 @@ Liste des endpoints publics exposés via Cloudflare Tunnel et de leurs health ch
 | shlink (go.axtazer.me) | https://go.axtazer.me | `/` | code 200 |
 | pelican panel | https://panel.axtazer.me | `/` | code 200 (probe interne en TCP:80 uniquement, pas de check applicatif) |
 | pelican wings | https://node01.axtazer.me | `/` | code 200 |
-| grafana | https://grafana.castaldo.fr | `/` | code 200 — watchdog externe du stack de monitoring lui-même |
+| grafana | https://grafana.mydomain.fr | `/` | code 200 — watchdog externe du stack de monitoring lui-même |
 | axtazia (bot) | https://axtazia.axtazer.me | `/webhook/twitch` | code 200/401 selon signature — pas de health dédié |
-| flo-pro (dev) | https://dev-pro.castaldo.fr | `/` | code 200 — priorité basse (environnement de dev) |
+| flo-pro (dev) | https://dev-pro.mydomain.fr | `/` | code 200 — priorité basse (environnement de dev) |
 
 ## Améliorations possibles
 

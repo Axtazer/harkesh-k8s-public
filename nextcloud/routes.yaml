@@ -9,7 +9,7 @@ spec:
     - name: shared-gateway
       namespace: kube-system
   hostnames:
-    - nas.castaldo.fr
+    - nas.mydomain.fr
     - harkesh.lan
   rules:
     - matches:
@@ -31,7 +31,7 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
-    - host: nas.castaldo.fr
+    - host: nas.mydomain.fr
       http:
         paths:
           - path: /

@@ -9,7 +9,7 @@ spec:
     - name: shared-gateway
       namespace: kube-system
   hostnames:
-    - grafana.castaldo.fr
+    - grafana.mydomain.fr
   rules:
     - matches:
         - path:
@@ -27,7 +27,7 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
-    - host: grafana.castaldo.fr
+    - host: grafana.mydomain.fr
       http:
         paths:
           - path: /

@@ -1,0 +1,14 @@
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: local-pool
+spec:
+  blocks:
+    - cidr: "192.168.1.203/32"
+# Pas de CiliumL2AnnouncementPolicy : `192.168.1.203` est réservée côté LAN, l'annoncer en
+# ARP créerait un conflit d'adresse. Le pool reste pour que le Service du `shared-gateway`
+# obtienne une IP, mais celle-ci n'est joignable depuis aucune machine du réseau.
+# Pour réactiver l'accès de secours LAN : allouer une IP libre au pool, puis recréer une
+# CiliumL2AnnouncementPolicy avec `interfaces: [eno1]` (eno1 = NIC du LAN ; enp34s0 est
+# sans câble).

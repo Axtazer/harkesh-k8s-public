@@ -1,0 +1,128 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: victoria-metrics-k8s-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    - chart: victoria-metrics-k8s-stack
+      repoURL: https://victoriametrics.github.io/helm-charts
+      targetRevision: 0.92.1
+      helm:
+        values: |
+          vmsingle:
+            enabled: true
+            spec:
+              retentionPeriod: "30d"
+              storage:
+                storageClassName: local-path
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 20Gi
+          vmagent:
+            enabled: true
+            spec:
+              scrapeInterval: 60s
+              selectAllByDefault: true
+              extraArgs:
+                promscrape.maxScrapeSize: "64MiB"
+          victoria-metrics-operator:
+            enabled: true
+            operator:
+              disable_prometheus_converter: false
+          # Datasource par defaut (VictoriaMetrics, API compatible Prometheus) nommee/uid "prometheus"
+          # pour matcher les references de datasource par nom "prometheus" codees en dur dans les
+          # dashboards custom importes (cf. monitoring/grafana-dashboards.yaml).
+          defaultDatasources:
+            victoriametrics:
+              datasources:
+                - name: prometheus
+                  type: prometheus
+                  access: proxy
+                  uid: prometheus
+                  isDefault: true
+          grafana:
+            enabled: true
+            admin:
+              existingSecret: grafana-admin
+              userKey: username
+              passwordKey: password
+            plugins:
+              - yesoreyeram-infinity-datasource
+            envValueFrom:
+              CLOUDFLARE_API_TOKEN:
+                secretKeyRef:
+                  name: cloudflare-analytics-token
+                  key: token
+            grafana.ini:
+              analytics:
+                check_for_updates: true
+              log:
+                mode: console
+              date_formats:
+                default_timezone: Europe/Paris
+              paths:
+                data: /var/lib/grafana/
+                logs: /var/log/grafana
+                plugins: /var/lib/grafana/plugins
+                provisioning: /etc/grafana/provisioning
+              server:
+                domain: grafana.mydomain.fr
+                root_url: https://grafana.mydomain.fr
+                serve_from_sub_path: false
+              unified_storage:
+                index_path: /var/lib/grafana-search/bleve
+          alertmanager:
+            enabled: false
+          kube-state-metrics:
+            enabled: true
+          prometheus-node-exporter:
+            enabled: true
+          vmalert:
+            enabled: false
+          # kubeApiServer reste actif (aligne sur kube-prometheus-stack) ; kubelet/coreDns
+          # gardent aussi les defauts du chart (actifs).
+          # kubeControllerManager/kubeScheduler/kubeEtcd desactives : composants kubeadm
+          # bindes sur 127.0.0.1 sur ce cluster, targets injoignables/down en permanence.
+          # kubeProxy desactive : remplace par Cilium (kubeProxyReplacement: true). Le DaemonSet
+          # kube-proxy pose par kubeadm init est un reste a supprimer (procedure dans le README,
+          # section Cilium) -- ses metriques n'ont aucun interet.
+          kubeApiServer:
+            enabled: true
+            vmScrape:
+              spec:
+                endpoints:
+                  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+                    port: https
+                    scheme: https
+                    tlsConfig:
+                      caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                      serverName: kubernetes
+                    metricRelabelConfigs:
+                      - action: drop
+                        source_labels: [__name__]
+                        regex: apiserver_(request_body_size|request_duration_seconds|request_sli_duration_seconds|response_sizes|watch_list_duration_seconds|watch_cache_read_wait_seconds)_bucket
+          kubeControllerManager:
+            enabled: false
+          kubeScheduler:
+            enabled: false
+          kubeEtcd:
+            enabled: false
+          kubeProxy:
+            enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

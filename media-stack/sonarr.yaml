@@ -1,0 +1,87 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr
+  namespace: media
+  labels:
+    app: sonarr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sonarr
+  template:
+    metadata:
+      labels:
+        app: sonarr
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: sonarr
+          image: lscr.io/linuxserver/sonarr:latest@sha256:4d9df314875e1249ab7d6170c2b9b3dc1d8e6383f168ceb10dc9a5ad9b324739
+          ports:
+            - containerPort: 8989
+              name: http
+          env:
+            # Utilisateur flo (1000) + groupe media (984) propriétaire de /mnt/hdd/media (dirs 2775, setgid).
+            # L'init linuxserver fait `lsiown -R` sur /config au démarrage. UMASK 002 : fichiers
+            # créés accessibles en écriture au groupe (import/déplacement entre apps).
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "984"
+            - name: UMASK
+              value: "002"
+            - name: TZ
+              value: Europe/Paris
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1536Mi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8989
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8989
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: config
+          hostPath:
+            path: /srv/appdata/sonarr
+            type: DirectoryOrCreate
+        - name: media
+          hostPath:
+            path: /mnt/hdd/media
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarr
+  namespace: media
+spec:
+  type: ClusterIP
+  selector:
+    app: sonarr
+  ports:
+    - name: http
+      port: 8989
+      targetPort: 8989

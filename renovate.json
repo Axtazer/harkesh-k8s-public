@@ -1,0 +1,618 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Renovate config — Axtazer k8s infra",
+  "extends": [
+    "config:recommended"
+  ],
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 10,
+  "minimumReleaseAge": "3 days",
+  "pinDigests": true,
+  "automerge": false,
+  "kubernetes": {
+    "managerFilePatterns": [
+      "/axtazer-me/.+\\.yaml$/",
+      "/bots/.+\\.yaml$/",
+      "/infra/cloudflare-tunnel-controller/.+\\.yaml$/",
+      "/flo-pro/.+\\.yaml$/",
+      "/monitoring/.+\\.yaml$/",
+      "/pelican/.+\\.yaml$/",
+      "/nextcloud/.+\\.yaml$/",
+      "/shlink/.+\\.yaml$/",
+      "/jellyfin/.+\\.yaml$/",
+      "/media-stack/.+\\.yaml$/",
+      "/n8n/.+\\.yaml$/",
+      "/authentik/.+\\.yaml$/",
+      "/ntfy/.+\\.yaml$/",
+      "/matrix/.+\\.yaml$/",
+      "/livekit/.+\\.yaml$/"
+    ]
+  },
+  "argocd": {
+    "managerFilePatterns": [
+      "/^argocd/.+\\.yaml$/",
+      "/^infra/cilium/gateway-api-crds\\.yaml$/"
+    ]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/validate\\.yml$/"
+      ],
+      "matchStrings": [
+        "KUBECONFORM_VERSION: \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "yannh/kubeconform",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^n8n/helm-values\\.yaml$/"
+      ],
+      "matchStrings": [
+        "repository:\\s*n8nio/n8n\\s*\\n\\s*tag:\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "n8nio/n8n",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/update-image\\.yml$/"
+      ],
+      "matchStrings": [
+        "mikefarah/yq/releases/download/v(?<currentValue>[^/\\s]+)/yq_linux_amd64"
+      ],
+      "depNameTemplate": "mikefarah/yq",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Nextcloud stack — toujours manuel, jamais automerge (migrations BDD irréversibles)",
+      "matchPackageNames": [
+        "nextcloud",
+        "mariadb",
+        "redis"
+      ],
+      "matchFileNames": [
+        "nextcloud/nextcloud.yaml"
+      ],
+      "groupName": "nextcloud-stack",
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "nextcloud",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "Bloquer MariaDB major — 12.x incompatible Nextcloud + rolling release",
+      "matchPackageNames": [
+        "mariadb"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Pelican stack — digest/patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "ghcr.io/pelican/panel",
+        "ghcr.io/pelican/wings"
+      ],
+      "groupName": "pelican-stack",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "pelican",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Pelican major — toujours manuel",
+      "matchPackageNames": [
+        "ghcr.io/pelican/panel",
+        "ghcr.io/pelican/wings"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ]
+    },
+    {
+      "description": "axtazer-me — digest automerge (image interne, site statique, pas de migration)",
+      "matchPackageNames": [
+        "ghcr.io/axtazer/axtazer-me"
+      ],
+      "groupName": "axtazer-me",
+      "minimumReleaseAge": "0 days",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "labels": [
+        "axtazer-me",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Axtazia — digest automerge (image interne, pas de migration)",
+      "matchPackageNames": [
+        "ghcr.io/axtazer/axtazia"
+      ],
+      "groupName": "axtazia",
+      "minimumReleaseAge": "0 days",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "labels": [
+        "bot",
+        "automerge"
+      ]
+    },
+    {
+      "description": "flo-pro — digest automerge (image interne)",
+      "matchPackageNames": [
+        "ghcr.io/axtazer/flo-pro"
+      ],
+      "groupName": "flo-pro",
+      "minimumReleaseAge": "0 days",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "labels": [
+        "flo-pro",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Sources git du dépôt lui-même (targetRevision: master) détectées par le manager argocd — rien à suivre",
+      "matchDatasources": [
+        "git-tags"
+      ],
+      "matchPackageNames": [
+        "https://github.com/Axtazer/harkesh-k8s"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Charts Helm des Applications ArgoCD (cilium, victoria-metrics-k8s-stack, nvidia, n8n) — toujours manuel + reviewer (CNI/monitoring/GPU : composants transverses)",
+      "matchManagers": [
+        "argocd"
+      ],
+      "matchDatasources": [
+        "helm",
+        "docker"
+      ],
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "infra",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "Manifests upstream suivis par tag git (CRDs Gateway API, local-path-provisioner) — manuel : Gateway API doit rester dans la matrice de compatibilité de Cilium, local-path-provisioner touche au stockage des PVC",
+      "matchDatasources": [
+        "git-tags"
+      ],
+      "matchPackageNames": [
+        "https://github.com/kubernetes-sigs/gateway-api",
+        "https://github.com/rancher/local-path-provisioner"
+      ],
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "infra",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "cloudflare-tunnel-ingress-controller — patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "cloudflare-tunnel-ingress-controller"
+      ],
+      "groupName": "cloudflare-tunnel-controller",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "infra",
+        "automerge"
+      ]
+    },
+    {
+      "description": "cAdvisor — digest/patch/minor automerge (exporter métriques, risque nul)",
+      "matchPackageNames": [
+        "gcr.io/cadvisor/cadvisor"
+      ],
+      "groupName": "monitoring",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "monitoring",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Outils CI (kubeconform, yq) — digest/patch/minor automerge, casse au pire un workflow",
+      "matchPackageNames": [
+        "yannh/kubeconform",
+        "mikefarah/yq"
+      ],
+      "groupName": "ci-tools",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "ci",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Images utilitaires (busybox, nginx well-known Matrix) — digest/patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "busybox",
+        "nginx"
+      ],
+      "groupName": "utils",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "utils",
+        "automerge"
+      ]
+    },
+    {
+      "description": "GitHub Actions — digest/patch/minor automerge",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "github-actions",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "ci",
+        "automerge"
+      ]
+    },
+    {
+      "description": "postgres partout — bloquer major (migrations BDD irréversibles)",
+      "matchPackageNames": [
+        "postgres"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "postgres partout — digest automerge (tag majeur épinglé, même version, pas de migration)",
+      "matchPackageNames": [
+        "postgres"
+      ],
+      "groupName": "postgres",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "labels": [
+        "database",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Shlink — digest/patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "ghcr.io/shlinkio/shlink",
+        "ghcr.io/shlinkio/shlink-web-client"
+      ],
+      "groupName": "shlink",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "shlink",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Jellyfin — digest/patch automerge, minor/major manuel (migrations DB possibles sur minor)",
+      "matchPackageNames": [
+        "jellyfin/jellyfin"
+      ],
+      "groupName": "jellyfin",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch"
+      ],
+      "labels": [
+        "media",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Jellyfin minor/major — manuel (risk de migration DB)",
+      "matchPackageNames": [
+        "jellyfin/jellyfin"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "media",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "n8n — digest/patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "n8nio/n8n"
+      ],
+      "groupName": "n8n",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "n8n",
+        "automerge"
+      ]
+    },
+    {
+      "description": "n8n major — toujours manuel (breaking changes entre versions majeures)",
+      "matchPackageNames": [
+        "n8nio/n8n"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "n8n",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "Seerr (ex-Jellyseerr) — versioning semver forcé (registre avec tags roulants v3/v3.3/v3.4 qui perturbent le tri générique)",
+      "matchPackageNames": [
+        "ghcr.io/seerr-team/seerr"
+      ],
+      "versioning": "semver"
+    },
+    {
+      "description": "Seerr (ex-Jellyseerr) — digest/patch/minor automerge",
+      "matchPackageNames": [
+        "ghcr.io/seerr-team/seerr"
+      ],
+      "groupName": "seerr",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "media",
+        "automerge"
+      ]
+    },
+    {
+      "description": "media-stack *arr + Gluetun — digest/patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "lscr.io/linuxserver/prowlarr",
+        "lscr.io/linuxserver/radarr",
+        "lscr.io/linuxserver/sonarr",
+        "lscr.io/linuxserver/qbittorrent",
+        "ghcr.io/qdm12/gluetun"
+      ],
+      "groupName": "media-stack",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "media",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Authentik stack — digest/patch/minor automerge, major manuel (migrations BDD)",
+      "matchPackageNames": [
+        "ghcr.io/goauthentik/server"
+      ],
+      "groupName": "authentik",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "authentik",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Authentik major — toujours manuel (migrations BDD irréversibles)",
+      "matchPackageNames": [
+        "ghcr.io/goauthentik/server"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "authentik",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "ntfy — digest/patch/minor automerge, major manuel",
+      "matchPackageNames": [
+        "binwiederhier/ntfy"
+      ],
+      "groupName": "ntfy",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "minor"
+      ],
+      "labels": [
+        "ntfy",
+        "automerge"
+      ]
+    },
+    {
+      "description": "Matrix Synapse — toujours manuel, jamais automerge (homeserver, données de chat)",
+      "matchPackageNames": [
+        "matrixdotorg/synapse"
+      ],
+      "groupName": "matrix",
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "matrix",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "LiveKit (SFU Element Call) + lk-jwt-service + sidecar WireGuard — toujours manuel, jamais automerge (relais réseau critique, tunnel WireGuard)",
+      "matchPackageNames": [
+        "livekit/livekit-server",
+        "ghcr.io/element-hq/lk-jwt-service",
+        "lscr.io/linuxserver/wireguard"
+      ],
+      "groupName": "livekit",
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "livekit",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "Draupnir (bot de modération) — manuel, jamais automerge (compte avec droits de modération/admin sur le homeserver)",
+      "matchPackageNames": [
+        "gnuxie/draupnir"
+      ],
+      "groupName": "draupnir",
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "matrix",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "Maubot (bot RSS Matrix) — manuel, jamais automerge (compte Matrix du bot + migrations de la base maubot/plugins)",
+      "matchPackageNames": [
+        "dock.mau.dev/maubot/maubot"
+      ],
+      "groupName": "maubot",
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "matrix",
+        "manual-review"
+      ]
+    },
+    {
+      "description": "Catch-all : toute major non couverte = manuel + reviewer",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "reviewers": [
+        "Axtazer"
+      ],
+      "labels": [
+        "major",
+        "manual-review"
+      ]
+    }
+  ]
+}

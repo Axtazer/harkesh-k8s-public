@@ -1,0 +1,87 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radarr
+  namespace: media
+  labels:
+    app: radarr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: radarr
+  template:
+    metadata:
+      labels:
+        app: radarr
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: radarr
+          image: lscr.io/linuxserver/radarr:latest@sha256:95ba0801df4d9d1d79d0d9a3849f656542497dab061d91b87ad4f53a71aff3ef
+          ports:
+            - containerPort: 7878
+              name: http
+          env:
+            # Utilisateur flo (1000) + groupe media (984) propriétaire de /mnt/hdd/media (dirs 2775, setgid).
+            # L'init linuxserver fait `lsiown -R` sur /config au démarrage. UMASK 002 : fichiers
+            # créés accessibles en écriture au groupe (import/déplacement entre apps).
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "984"
+            - name: UMASK
+              value: "002"
+            - name: TZ
+              value: Europe/Paris
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 7878
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 7878
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: config
+          hostPath:
+            path: /srv/appdata/radarr
+            type: DirectoryOrCreate
+        - name: media
+          hostPath:
+            path: /mnt/hdd/media
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: radarr
+  namespace: media
+spec:
+  type: ClusterIP
+  selector:
+    app: radarr
+  ports:
+    - name: http
+      port: 7878
+      targetPort: 7878

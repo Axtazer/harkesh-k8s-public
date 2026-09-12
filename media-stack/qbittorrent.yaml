@@ -1,0 +1,183 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qbittorrent
+  namespace: media
+  labels:
+    app: qbittorrent
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: qbittorrent
+  template:
+    metadata:
+      labels:
+        app: qbittorrent
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: tun-init
+          image: busybox:latest@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+          command: ["sh", "-c", "modprobe wireguard 2>/dev/null || true; test -c /dev/net/tun && echo 'tun ok' || (mknod /dev/net/tun c 10 200 && echo 'tun created')"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: dev-net
+              mountPath: /dev/net
+            - name: modules
+              mountPath: /lib/modules
+              readOnly: true
+
+        # Native sidecar (restartPolicy: Always) : demarre avant qbittorrent et
+        # bloque son demarrage tant que le tunnel VPN n'est pas up (startupProbe).
+        # Garantit que le trafic qbittorrent ne part jamais avant que gluetun soit ON.
+        - name: gluetun
+          restartPolicy: Always
+          image: ghcr.io/qdm12/gluetun:latest@sha256:89e3cbe22e0d6f09a18d3e86269392fd9f7f08e8991040741e577f8f127cdfe4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              add:
+                - "NET_ADMIN"
+                - "NET_RAW"
+          ports:
+            - name: control
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: VPN_SERVICE_PROVIDER
+              value: mullvad
+            - name: VPN_TYPE
+              value: wireguard
+            - name: WIREGUARD_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mullvad-credentials
+                  key: wireguard-private-key
+            - name: WIREGUARD_ADDRESSES
+              valueFrom:
+                secretKeyRef:
+                  name: mullvad-credentials
+                  key: wireguard-address
+            - name: SERVER_COUNTRIES
+              value: France,Switzerland
+            - name: WIREGUARD_MTU
+              value: "1280"
+            # CIDR pods Cilium (cluster-pool 10.0.0.0/8). 10.42/10.43 = restes k3s, jamais utilisés ici.
+            - name: FIREWALL_OUTBOUND_SUBNETS
+              value: "10.0.0.0/8"
+            - name: HEALTH_TARGET_ADDRESSES
+              value: "1.1.1.1:443,8.8.8.8:443"
+            - name: HEALTH_VPN_STATUS_ON_CHECK_FAILURE
+              value: restart
+            - name: FIREWALL_INPUT_PORTS
+              value: "8080"
+            - name: TZ
+              value: Europe/Paris
+            - name: UPDATER_PERIOD
+              value: 24h
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: dev-net
+              mountPath: /dev/net
+          # /gluetun-entrypoint healthcheck interroge le serveur de sante interne
+          # (127.0.0.1:9999) : ne repond 200 qu'une fois le tunnel WireGuard etabli
+          # et la verification d'acces internet passee.
+          startupProbe:
+            exec:
+              command: ["/gluetun-entrypoint", "healthcheck"]
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            exec:
+              command: ["/gluetun-entrypoint", "healthcheck"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+      containers:
+        - name: qbittorrent
+          image: lscr.io/linuxserver/qbittorrent:latest@sha256:8d48fa8c619caadfb103f04efea8747e2a2762d6c7551690919cffb987e61cee
+          env:
+            # Utilisateur flo (1000) + groupe media (984) propriétaire de /mnt/hdd/media (dirs 2775, setgid).
+            # L'init linuxserver fait `lsiown -R` sur /config au démarrage. UMASK 002 : fichiers
+            # créés accessibles en écriture au groupe (import/déplacement entre apps).
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "984"
+            - name: UMASK
+              value: "002"
+            - name: TZ
+              value: Europe/Paris
+            - name: WEBUI_PORT
+              value: "8080"
+          ports:
+            - containerPort: 8080
+              name: webui
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+      volumes:
+        - name: dev-net
+          hostPath:
+            path: /dev/net
+            type: DirectoryOrCreate
+        - name: modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+        - name: config
+          hostPath:
+            path: /srv/appdata/qbittorrent
+            type: DirectoryOrCreate
+        - name: media
+          hostPath:
+            path: /mnt/hdd/media
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent
+  namespace: media
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  type: ClusterIP
+  selector:
+    app: qbittorrent
+  ports:
+    - name: webui
+      port: 8080
+      targetPort: 8080

@@ -1,0 +1,61 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: matrix-tunnel
+  namespace: matrix
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: matrix.axtazer.me
+      http:
+        paths:
+          # pathType Exact non supporté par ce controller (strrl.dev/
+          # cloudflare-tunnel-ingress-controller) -- il rejette alors TOUT
+          # l'Ingress (plus aucune route programmée, DNS cassé). Prefix sur ce
+          # chemin précis reste sans risque : rien d'autre ne matche sous
+          # /.well-known/matrix/client/*, et il précède le "/" plus générique.
+          - path: /.well-known/matrix/client
+            pathType: Prefix
+            backend:
+              service:
+                name: matrix-wellknown
+                port:
+                  number: 8080
+          - path: /.well-known/matrix/server
+            pathType: Prefix
+            backend:
+              service:
+                name: matrix-wellknown
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: synapse
+                port:
+                  number: 8008
+---
+# Interface web de maubot (installation des plugins, instances, clients).
+# À protéger par une policy Cloudflare Access : elle donne un contrôle total sur
+# le bot et sur les comptes Matrix qui y sont connectés.
+# L'UI est servie sous /_matrix/maubot (ui_base_path) — "/" renvoie 404, c'est normal.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: maubot-tunnel
+  namespace: matrix
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: maubot.axtazer.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: maubot
+                port:
+                  number: 29316

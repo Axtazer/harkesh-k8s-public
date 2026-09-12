@@ -1,0 +1,59 @@
+---
+# Gère les apps (manifests K8s bruts) — un dossier = une Application.
+# Générateur list (et non git/directories) pour fixer le namespace de destination par app :
+# jellyfin/ et media-stack/ vivent tous deux dans le namespace media. Avec le générateur
+# directories, destination.namespace valait le nom du dossier et CreateNamespace créait des
+# namespaces vides (jellyfin, media-stack). Ajouter une app = ajouter une entrée ici.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster-apps
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - app: authentik
+            namespace: authentik
+          - app: axtazer-me
+            namespace: axtazer-me
+          - app: bots
+            namespace: bots
+          - app: flo-pro
+            namespace: flo-pro
+          - app: jellyfin
+            namespace: media
+          - app: livekit
+            namespace: livekit
+          - app: matrix
+            namespace: matrix
+          - app: media-stack
+            namespace: media
+          - app: monitoring
+            namespace: monitoring
+          - app: nextcloud
+            namespace: nextcloud
+          - app: ntfy
+            namespace: ntfy
+          - app: pelican
+            namespace: pelican
+          - app: shlink
+            namespace: shlink
+  template:
+    metadata:
+      name: '{{app}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/Axtazer/harkesh-k8s
+        targetRevision: master
+        path: '{{app}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

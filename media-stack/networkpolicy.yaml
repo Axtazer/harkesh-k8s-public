@@ -1,0 +1,233 @@
+---
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace media
+# (stack *arr + qBittorrent ici, Jellyfin dans jellyfin/networkpolicy.yaml — même namespace).
+# Flux ré-ouverts :
+#   cloudflared     ─► prowlarr:9696, radarr:7878, sonarr:8989, qbittorrent:8080, jellyseerr:5055
+#   jellyseerr      ─► radarr:7878, sonarr:8989, jellyfin:8096
+#   prowlarr        ─► radarr:7878, sonarr:8989   (sync indexers / apps)
+#   radarr, sonarr  ─► prowlarr:9696              (recherches Torznab), qbittorrent:8080 (download client)
+#   prowlarr/radarr/sonarr/jellyseerr ─► Internet 80/443 (indexers, TMDB/TVDB, notifications)
+#   qbittorrent (gluetun) ─► Internet UDP/TCP tout port (tunnel WireGuard Mullvad ; le trafic
+#                            torrent est encapsulé dedans, rien ne sort en clair du pod)
+#   tous            ─► DNS (kube-system:53)
+# Les probes kubelet ne sont pas concernées (trafic depuis l'hôte, toujours autorisé par Cilium).
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n media --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-default-deny
+  namespace: media
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-allow-egress-dns
+  namespace: media
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# Web UIs joignables depuis le connecteur cloudflared uniquement
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-allow-ingress-cloudflared
+  namespace: media
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [prowlarr, radarr, sonarr, qbittorrent, jellyseerr]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 9696
+          protocol: TCP
+        - port: 7878
+          protocol: TCP
+        - port: 8989
+          protocol: TCP
+        - port: 8080
+          protocol: TCP
+        - port: 5055
+          protocol: TCP
+---
+# Prowlarr <-> Radarr/Sonarr (sync indexers + recherches), Jellyseerr -> Radarr/Sonarr
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arr-allow-ingress-internal
+  namespace: media
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [radarr, sonarr]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [prowlarr, jellyseerr]
+      ports:
+        - port: 7878
+          protocol: TCP
+        - port: 8989
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prowlarr-allow-ingress-arr
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app: prowlarr
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [radarr, sonarr]
+      ports:
+        - port: 9696
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qbittorrent-allow-ingress-arr
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app: qbittorrent
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [radarr, sonarr]
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# Egress interne des *arr / Jellyseerr (miroir des règles d'ingress ci-dessus + Jellyfin)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arr-allow-egress-internal
+  namespace: media
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [prowlarr, radarr, sonarr, jellyseerr]
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [prowlarr, radarr, sonarr, qbittorrent, jellyfin]
+      ports:
+        - port: 9696
+          protocol: TCP
+        - port: 7878
+          protocol: TCP
+        - port: 8989
+          protocol: TCP
+        - port: 8080
+          protocol: TCP
+        - port: 8096
+          protocol: TCP
+---
+# *arr / Jellyseerr -> Internet (indexers, métadonnées, notifications), plages privées exclues
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arr-allow-egress-internet
+  namespace: media
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [prowlarr, radarr, sonarr, jellyseerr]
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP
+---
+# qBittorrent : tout l'egress passe par le tunnel WireGuard de gluetun (UDP vers le serveur Mullvad).
+# Tout port autorisé vers Internet car le port WireGuard dépend du serveur choisi ; les plages
+# privées restent bloquées (rien ne peut atteindre le cluster/LAN en contournant le VPN).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qbittorrent-allow-egress-vpn
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app: qbittorrent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16

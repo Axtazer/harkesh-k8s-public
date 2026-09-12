@@ -1,0 +1,36 @@
+---
+# ArgoCD se gère lui-même à partir du chart Helm : même chart / même version que le bootstrap
+# `helm install` (README, étape 4), values dans infra/argocd/values.yaml. Après le premier sync, toute
+# modification (values, version du chart via Renovate) passe par git.
+#
+# prune: false volontairement — les Secrets créés à l'exécution (argocd-initial-admin-secret,
+# argocd-redis, clés de session dans argocd-secret) ne sont pas dans le rendu du chart ; un prune
+# les considérerait comme orphelins. ServerSideApply : CRDs Application/ApplicationSet trop
+# volumineuses pour l'annotation last-applied du client-side apply.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/Axtazer/harkesh-k8s
+      targetRevision: master
+      ref: values
+    - chart: argo-cd
+      repoURL: https://argoproj.github.io/argo-helm
+      targetRevision: 10.8.4
+      helm:
+        releaseName: argocd
+        valueFiles:
+          - $values/infra/argocd/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

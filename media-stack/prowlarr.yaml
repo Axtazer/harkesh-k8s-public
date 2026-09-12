@@ -1,0 +1,81 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prowlarr
+  namespace: media
+  labels:
+    app: prowlarr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: prowlarr
+  template:
+    metadata:
+      labels:
+        app: prowlarr
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: prowlarr
+          image: lscr.io/linuxserver/prowlarr:latest@sha256:91844fa2c927ad6ede5630127183cc7868b175f6223e83e6a5da1fffea2aa782
+          ports:
+            - containerPort: 9696
+              name: http
+          env:
+            # Utilisateur flo (1000) + groupe media (984) propriétaire de /mnt/hdd/media (dirs 2775, setgid).
+            # L'init linuxserver fait `lsiown -R` sur /config au démarrage. UMASK 002 : fichiers
+            # créés accessibles en écriture au groupe (import/déplacement entre apps).
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "984"
+            - name: UMASK
+              value: "002"
+            - name: TZ
+              value: Europe/Paris
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 9696
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9696
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: config
+          hostPath:
+            path: /srv/appdata/prowlarr
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prowlarr
+  namespace: media
+spec:
+  type: ClusterIP
+  selector:
+    app: prowlarr
+  ports:
+    - name: http
+      port: 9696
+      targetPort: 9696

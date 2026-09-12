@@ -1,0 +1,358 @@
+---
+# /srv/kubernetes/storageServices/nextcloud.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nextcloud
+  labels:
+    shared-gateway-access: "true"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nextcloud-app-pv
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/data/nextcloud/app
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-app-pvc
+  namespace: nextcloud
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+  volumeName: nextcloud-app-pv
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nextcloud-data-pv
+spec:
+  capacity:
+    storage: 500Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/cloud_data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-data-pvc
+  namespace: nextcloud
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 500Gi
+  volumeName: nextcloud-data-pv
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nextcloud-db-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/data/mariadb
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-db-pvc
+  namespace: nextcloud
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 50Gi
+  volumeName: nextcloud-db-pv
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: nextcloud-db-secret
+  namespace: nextcloud
+spec:
+  itemPath: "vaults/k8s-home/items/nextcloud-db"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb
+  namespace: nextcloud
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: mariadb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: mariadb
+          image: mariadb:11@sha256:2439dcd7d14010ecd1ff7a4e1c5abe8e208c34fe35290744deeeaac3569043c3
+          args:
+            - --transaction-isolation=READ-COMMITTED
+            - --innodb_read_only_compressed=OFF
+            - --innodb_flush_log_at_trx_commit=2
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_general_ci
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: mot-de-passe
+            - name: MARIADB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: Base-de-donn-es
+            - name: MARIADB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: Nom-d-utilisateur
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: mot-de-passe
+            - name: TZ
+              value: Europe/Paris
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/mysql
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: nextcloud-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: nextcloud
+spec:
+  selector:
+    app: mariadb
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: nextcloud
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: redis
+          image: redis:alpine@sha256:becdda6c7f4b3fb42e42fd7f120bbf5c54c4caaaf16f26da24e4563d2c1f0576
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: nextcloud
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: nextcloud
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: nextcloud
+          image: nextcloud:apache@sha256:b97df9e0e1ee3c8c6cc009cb3f12ddce915d624d543b3bb93882025fe323a407
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: Base-de-donn-es
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: Nom-d-utilisateur
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: mot-de-passe
+            - name: MYSQL_HOST
+              value: mariadb.nextcloud.svc.cluster.local
+            - name: NEXTCLOUD_DATA_DIR
+              value: /data
+            - name: PHP_MEMORY_LIMIT
+              value: "2048M"
+            - name: PHP_UPLOAD_LIMIT
+              value: "16G"
+            - name: TZ
+              value: Europe/Paris
+            - name: NEXTCLOUD_TRUSTED_DOMAINS
+              value: "nas.mydomain.fr harkesh.lan"
+            # CIDR pods/services du cluster (Cilium cluster-pool par défaut : 10.0.0.0/8).
+            # Les anciennes valeurs 10.42.0.0/16 10.43.0.0/16 sont les CIDR par défaut de k3s,
+            # pas de ce cluster kubeadm : le pod cloudflared n'était donc pas reconnu comme
+            # proxy et son IP était vue comme IP client (brute-force protection partagée).
+            - name: TRUSTED_PROXIES
+              value: "10.0.0.0/8"
+            - name: REDIS_HOST
+              value: redis.nextcloud.svc.cluster.local
+            - name: REDIS_HOST_PORT
+              value: "6379"
+          volumeMounts:
+            - name: app
+              mountPath: /var/www/html
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /status.php
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /status.php
+              port: 80
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+      volumes:
+        - name: app
+          persistentVolumeClaim:
+            claimName: nextcloud-app-pvc
+        - name: data
+          persistentVolumeClaim:
+            claimName: nextcloud-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+spec:
+  selector:
+    app: nextcloud
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nextcloud-cron
+  namespace: nextcloud
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          automountServiceAccountToken: false
+          containers:
+            - name: nextcloud-cron
+              image: nextcloud:apache@sha256:b97df9e0e1ee3c8c6cc009cb3f12ddce915d624d543b3bb93882025fe323a407
+              command:
+                - su
+                - -s
+                - /bin/bash
+                - www-data
+                - -c
+                - php /var/www/html/cron.php
+              volumeMounts:
+                - name: app
+                  mountPath: /var/www/html
+                - name: data
+                  mountPath: /data
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "200m"
+          restartPolicy: OnFailure
+          volumes:
+            - name: app
+              persistentVolumeClaim:
+                claimName: nextcloud-app-pvc
+            - name: data
+              persistentVolumeClaim:
+                claimName: nextcloud-data-pvc

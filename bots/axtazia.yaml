@@ -1,0 +1,72 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bots
+  labels:
+    shared-gateway-access: "true"
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: axtazia-secrets
+  namespace: bots
+spec:
+  itemPath: "vaults/k8s-home/items/axtazia-bot"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axtazia-bot
+  namespace: bots
+  labels:
+    app: axtazia
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: axtazia
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: axtazia
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: bot
+          image: ghcr.io/axtazer/axtazia:latest@sha256:f4b8bcf454d3dead74bb1ca50c5b25101cce8772b293be4e9500fa044eeb6629
+          ports:
+            - containerPort: 3000
+              name: webhook
+          env:
+            - name: TZ
+              value: Europe/Paris
+          envFrom:
+            - secretRef:
+                name: axtazia-secrets
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: axtazia-bot
+  namespace: bots
+spec:
+  selector:
+    app: axtazia
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: webhook
+  type: ClusterIP

@@ -1,0 +1,429 @@
+---
+# Partage croisé de bibliothèque avec un pair (namespace media).
+#
+# Deux sens, un seul tunnel WireGuard, monté UNIQUEMENT dans le netns de ce pod
+# (jamais sur l'hôte harkesh — même principe que livekit/livekit.yaml) :
+#
+#   EXPORT  pair ──wg1──► sws:10.20.0.1:8080   /mnt/hdd/media/files en lecture seule
+#   IMPORT  jellyfin ──► proxy:8081 ──wg1──► 10.20.0.2:8080 (bibliothèque du pair)
+#
+# Tout l'egress du pod sort par Mullvad (gluetun, mêmes credentials que qbittorrent) :
+# le pair voit une IP de sortie Mullvad, jamais l'IP résidentielle. Le tunnel reste
+# chiffré de bout en bout — Mullvad ne transporte que des paquets WireGuard opaques.
+#
+# Lecture seule garantie par 4 couches indépendantes :
+#   1. hostPath readOnly          → bind mount RO, EROFS même pour root
+#   2. static-web-server          → binaire sans code d'écriture (POST/PUT/DELETE = 405, vérifié)
+#   3. image scratch              → pas de shell, pas de busybox, rien à exécuter
+#   4. runAsUser 1000 / drop ALL  → aucun droit d'écriture sur /mnt/hdd/media
+#
+# Le conteneur exposé au tunnel (sws) n'a aucune capability et aucun chemin
+# inscriptible ; celui qui porte NET_ADMIN (wg-tunnel) ne monte pas /media. Les deux
+# privilèges ne se rejoignent nulle part. Ne JAMAIS activer shareProcessNamespace :
+# c'est ce qui garde le shell de l'image wireguard hors d'atteinte depuis sws.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-share
+  namespace: media
+  labels:
+    app: media-share
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: media-share
+  template:
+    metadata:
+      labels:
+        app: media-share
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: tun-init
+          image: busybox:latest@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+          command: ["sh", "-c", "modprobe wireguard 2>/dev/null || true; test -c /dev/net/tun && echo 'tun ok' || (mknod /dev/net/tun c 10 200 && echo 'tun created')"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: dev-net
+              mountPath: /dev/net
+            - name: modules
+              mountPath: /lib/modules
+              readOnly: true
+
+        # Native sidecar : le startupProbe bloque les conteneurs suivants tant que le
+        # tunnel Mullvad n'est pas up. Rien ne peut donc sortir en clair, même au boot.
+        - name: gluetun
+          restartPolicy: Always
+          image: ghcr.io/qdm12/gluetun:latest@sha256:a2d96492aaac1e57d91e324fcf32382fc3c4b4f1fb59997fcf7c93effc582209
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              add:
+                - "NET_ADMIN"
+                - "NET_RAW"
+          env:
+            - name: VPN_SERVICE_PROVIDER
+              value: mullvad
+            - name: VPN_TYPE
+              value: wireguard
+            - name: WIREGUARD_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mullvad-credentials
+                  key: wireguard-private-key
+            - name: WIREGUARD_ADDRESSES
+              valueFrom:
+                secretKeyRef:
+                  name: mullvad-credentials
+                  key: wireguard-address
+            - name: SERVER_COUNTRIES
+              value: France,Switzerland
+            - name: WIREGUARD_MTU
+              value: "1280"
+            # CIDR pods Cilium : laisse le proxy répondre à Jellyfin sur eth0 sans passer par le VPN.
+            - name: FIREWALL_OUTBOUND_SUBNETS
+              value: "10.0.0.0/8"
+            - name: FIREWALL_INPUT_PORTS
+              value: "8081"
+            - name: HEALTH_TARGET_ADDRESSES
+              value: "1.1.1.1:443,8.8.8.8:443"
+            - name: HEALTH_VPN_STATUS_ON_CHECK_FAILURE
+              value: restart
+            - name: TZ
+              value: Europe/Paris
+            - name: UPDATER_PERIOD
+              value: 24h
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: dev-net
+              mountPath: /dev/net
+          startupProbe:
+            exec:
+              command: ["/gluetun-entrypoint", "healthcheck"]
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            exec:
+              command: ["/gluetun-entrypoint", "healthcheck"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+        # Monte wg1 (wg0 appartient déjà à gluetun) et pose le filtre du tunnel.
+        # Boucle continue plutôt qu'initContainer : Cilium fait une passe de
+        # reconfiguration du netns après le démarrage du pod qui balaie les interfaces
+        # qu'il ne connaît pas (cf. commentaire équivalent dans livekit/livekit.yaml).
+        - name: wg-tunnel
+          restartPolicy: Always
+          image: lscr.io/linuxserver/wireguard:latest@sha256:d6de09f9e9a2398446a3e951e278da930dd254c05d842755a10a6079d8b7b8aa
+          env:
+            - name: TZ
+              value: Europe/Paris
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              PEER_PUB="$(cat /etc/wg-secret/wg-peer-public-key)"
+              PEER_ENDPOINT="$(cat /etc/wg-secret/wg-peer-endpoint)"
+              # PSK optionnelle : le champ wg-preshared-key peut être absent de l'item
+              # 1Password, auquel cas le fichier n'est pas monté et le tunnel fonctionne
+              # sans. Elle DOIT être identique des deux côtés — une PSK d'un seul côté
+              # fait échouer le handshake sans message explicite.
+              PSK_ARG=""
+              if [ -s /etc/wg-secret/wg-preshared-key ]; then
+                PSK_ARG="preshared-key /etc/wg-secret/wg-preshared-key"
+              fi
+              while true; do
+                if ! ip link show wg1 >/dev/null 2>&1; then
+                  ip link add wg1 type wireguard
+                fi
+                # Tout ce qui suit est idempotent et réappliqué à chaque tour. La garde
+                # ci-dessus ne couvre QUE la création : si une itération s'interrompt en
+                # cours de route, la suivante répare au lieu de figer un état partiel.
+                # Une garde englobant toute la configuration laissait une wg1 créée mais
+                # DOWN dont la boucle ne ressortait jamais.
+                ip addr replace 10.20.0.1/32 dev wg1
+                if ! wg show wg1 peers | grep -q .; then
+                  # allowed-ips = ACL cryptographique : un paquet décapsulé dont la source
+                  # n'est pas 10.20.0.2 est jeté. C'est aussi un filtre d'émission — ce pod
+                  # ne PEUT pas envoyer ailleurs sur wg1.
+                  # $PSK_ARG non quoté : vide, il disparaît ; sinon il apporte ses
+                  # deux mots. Doit suivre `peer` — c'est une sous-option de pair.
+                  wg set wg1 private-key /etc/wg-secret/wg-private-key \
+                    peer "$PEER_PUB" \
+                    $PSK_ARG \
+                    endpoint "$PEER_ENDPOINT" \
+                    allowed-ips 10.20.0.2/32 \
+                    persistent-keepalive 25
+                fi
+                # L'interface doit être UP AVANT la route : `ip route` vers un lien down
+                # échoue ("Device for nexthop is not up"), ce qui tuait le conteneur sous
+                # `set -e` avant que le lien ne soit jamais monté.
+                ip link set dev wg1 up
+                # 1280 (MTU gluetun) - 60 d'en-tête WireGuard, arrondi bas. Non fatal :
+                # un MTU refusé ne doit pas empêcher le tunnel de monter, mais il se
+                # verrait plus tard en blocages sur les gros fichiers — donc on le crie.
+                if ! ip link set dev wg1 mtu 1200; then
+                  echo "ATTENTION: MTU 1200 refuse sur wg1, risque de blocages en lecture" >&2
+                fi
+                # `wg set` ne pose pas de route (seul wg-quick le fait) et l'adresse est
+                # en /32 : sans ceci, rien ne part vers le pair.
+                ip route replace 10.20.0.2/32 dev wg1
+                # ...mais cette route vit dans la table main, que le noyau ne consulte
+                # qu'en priorité 32766. Or gluetun installe en priorité 99 une règle
+                # "to 10.0.0.0/8 lookup 199", et la table 199 renvoie tout 10.0.0.0/8
+                # via eth0 pour que le trafic cluster contourne le VPN. 10.20.0.2 étant
+                # dans 10.0.0.0/8, le pair partait par eth0 et se perdait. On force donc
+                # ce seul /32 vers main, au-dessus du bloc 98-101 de gluetun — c'est le
+                # motif que gluetun applique lui-même en 98 pour sa passerelle.
+                ip rule show | grep -q "to 10.20.0.2 lookup main" \
+                  || ip rule add to 10.20.0.2/32 lookup main priority 10
+                # Cilium n'applique PAS ses NetworkPolicies au trafic qui arrive déjà
+                # déchiffré sur wg1 (interface hors de sa datapath eBPF) : ces deux règles
+                # sont la seule barrière côté tunnel. Le pair ne joint que sws:8080 —
+                # ni le proxy 8081, ni quoi que ce soit d'autre dans le netns.
+                # ACCEPT inséré en TÊTE de chaîne : gluetun reconstruit INPUT à chaque
+                # (re)connexion Mullvad et insère ses propres règles en tête. Une règle
+                # ajoutée en fin de chaîne se ferait court-circuiter par sa politique DROP.
+                # Le -C rend l'opération idempotente et la boucle réarme en <10 s si
+                # gluetun a vidé la chaîne.
+                iptables -C INPUT -i wg1 -p tcp --dport 8080 -j ACCEPT 2>/dev/null \
+                  || iptables -I INPUT 1 -i wg1 -p tcp --dport 8080 -j ACCEPT
+                iptables -C INPUT -i wg1 -j DROP 2>/dev/null \
+                  || iptables -A INPUT -i wg1 -j DROP
+                # Symétrique en OUTPUT : gluetun y pose aussi une politique DROP et
+                # n'autorise que lo, eth0 et son propre tun0. Le paquet interne traverse
+                # OUTPUT avec out=wg1 AVANT que WireGuard ne l'encapsule, il était donc
+                # jeté. Pas besoin de restreindre la destination : allowed-ips borne déjà
+                # wg1 au seul 10.20.0.2.
+                iptables -C OUTPUT -o wg1 -j ACCEPT 2>/dev/null \
+                  || iptables -I OUTPUT 1 -o wg1 -j ACCEPT
+                sleep 10
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              # NET_RAW en plus de NET_ADMIN : iptables passe par une socket raw.
+              add: ["NET_ADMIN", "NET_RAW"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: wg-secret
+              mountPath: /etc/wg-secret
+              readOnly: true
+          # Bloque sws tant que wg1 n'a pas son adresse : sws écoute dessus et
+          # échouerait à bind sinon.
+          startupProbe:
+            exec:
+              command: ["sh", "-c", "ip addr show wg1 | grep -q 'inet 10.20.0.1'"]
+            periodSeconds: 3
+            timeoutSeconds: 3
+            failureThreshold: 20
+
+      containers:
+        # EXPORT — seul processus joignable depuis le tunnel.
+        # Image scratch : le layer ne contient QUE ce binaire statique (vérifié :
+        # 2 layers, 3,74 Mo). Pas de /bin/sh, pas de libc dynamique, pas de gestionnaire
+        # de paquets. Conséquence : `kubectl exec` est impossible ici, utiliser
+        # `kubectl debug -n media -it deploy/media-share --image=busybox --target=sws`.
+        - name: sws
+          image: ghcr.io/static-web-server/static-web-server:2.44.0@sha256:2c1a7c3e0feaea5859307403b74e1c575f3ec1499094fc077344173d11abaae2
+          args:
+            # Bind sur l'IP du tunnel : injoignable depuis le cluster, même si une
+            # NetworkPolicy sautait.
+            - --host=10.20.0.1
+            - --port=8080
+            - --root=/media
+            - --directory-listing=true
+            - --directory-listing-format=json
+            - --directory-listing-order=0
+            # Un lien symbolique dans /mnt/hdd/media/files ne peut pas servir de sortie
+            # de route hors du root.
+            - --disable-symlinks=true
+            - --ignore-hidden-files=true
+            # Inutile sur de la vidéo déjà compressée, et ça coûte du CPU par requête.
+            - --compression=false
+            # Rien de ce que le pair consulte n'est journalisé (défaut : pas d'IP non plus).
+            - --log-level=error
+            - --grace-period=10
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 984
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          # Pas de probe : le listener est sur wg1, le kubelet sonde l'IP du pod et ne
+          # peut pas l'atteindre. Un crash est traité par le restart du conteneur.
+          volumeMounts:
+            - name: media
+              mountPath: /media
+              readOnly: true
+
+        # IMPORT — expose la bibliothèque du pair au cluster. Ne fait que relayer :
+        # c'est Jellyfin qui consomme, le pair ne peut pas l'atteindre (règles wg1).
+        - name: proxy
+          image: nginx:alpine@sha256:bd43d3d8fdbbe597c36fea489886796466a9ea5b662e8c50897d53e190c88a3d
+          command: ["nginx", "-c", "/etc/nginx/nginx.conf", "-g", "daemon off;"]
+          ports:
+            - containerPort: 8081
+              name: remote
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          volumeMounts:
+            - name: proxy-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: proxy-tmp
+              mountPath: /tmp
+            - name: proxy-cache
+              mountPath: /var/cache/nginx
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            periodSeconds: 10
+
+      volumes:
+        - name: dev-net
+          hostPath:
+            path: /dev/net
+            type: DirectoryOrCreate
+        - name: modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+        - name: media
+          hostPath:
+            path: /mnt/hdd/media/files
+            type: Directory
+        - name: wg-secret
+          secret:
+            secretName: media-share-secrets
+            # 256 décimal = 0400 octal (r-------- root). Écrit en décimal : un littéral
+            # à zéro initial est interprété différemment selon la version de YAML.
+            defaultMode: 256
+        - name: proxy-config
+          configMap:
+            name: media-share-proxy
+        - name: proxy-tmp
+          emptyDir: {}
+        - name: proxy-cache
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: media-share-proxy
+  namespace: media
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  nginx.conf: |
+    worker_processes 1;
+    error_log /dev/stderr warn;
+    pid /tmp/nginx.pid;
+
+    events {
+      worker_connections 256;
+    }
+
+    http {
+      # readOnlyRootFilesystem : tout ce que nginx écrit doit atterrir dans l'emptyDir.
+      client_body_temp_path /tmp/client_body;
+      proxy_temp_path /tmp/proxy;
+      fastcgi_temp_path /tmp/fastcgi;
+      uwsgi_temp_path /tmp/uwsgi;
+      scgi_temp_path /tmp/scgi;
+
+      # Rien de ce que Jellyfin lit chez le pair n'est journalisé ici.
+      access_log off;
+      sendfile on;
+      server_tokens off;
+
+      server {
+        listen 8081;
+        server_name _;
+
+        location = /healthz {
+          return 200 "ok";
+        }
+
+        location / {
+          limit_except GET HEAD {
+            deny all;
+          }
+          proxy_pass http://10.20.0.2:8080;
+          proxy_http_version 1.1;
+          proxy_set_header Connection "";
+          # Streaming : on relaie au fil de l'eau, sans bufferiser des Go sur disque.
+          proxy_buffering off;
+          proxy_request_buffering off;
+          proxy_connect_timeout 10s;
+          proxy_read_timeout 300s;
+          proxy_send_timeout 300s;
+        }
+      }
+    }
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: media-share
+  namespace: media
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  type: ClusterIP
+  selector:
+    app: media-share
+  ports:
+    - name: remote
+      port: 8081
+      targetPort: 8081

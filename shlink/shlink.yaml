@@ -1,0 +1,284 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shlink
+  labels:
+    shared-gateway-access: "true"
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: shlink-secrets
+  namespace: shlink
+spec:
+  itemPath: "vaults/k8s-home/items/shlink"
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: shlink-db-secret
+  namespace: shlink
+spec:
+  itemPath: "vaults/k8s-home/items/shlink-db"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: shlink-db-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/data/shlink
+  claimRef:
+    namespace: shlink
+    name: shlink-db-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shlink-db-pvc
+  namespace: shlink
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: shlink-db-pv
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: shlink
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: postgres
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: postgres
+          image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: shlink-db-secret
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shlink-db-secret
+                  key: DB_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: shlink-db-secret
+                  key: DB_NAME
+            - name: TZ
+              value: Europe/Paris
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-q", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-q", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: shlink-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: shlink
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shlink
+  namespace: shlink
+  labels:
+    app: shlink
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: shlink
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: shlink
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: shlink
+          image: ghcr.io/shlinkio/shlink:stable@sha256:666cc24edf7290cca17019d2ef654c301695a646e2db82d4d116c3cd954d8232
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: shlink-secrets
+            - secretRef:
+                name: shlink-db-secret
+          env:
+            - name: DEFAULT_DOMAIN
+              value: go.axtazer.me
+            - name: IS_HTTPS_ENABLED
+              value: "true"
+            - name: DB_DRIVER
+              value: postgres
+            - name: DB_HOST
+              value: postgres.shlink.svc.cluster.local
+            - name: CORS_ALLOW_ORIGIN
+              value: https://shlink.axtazer.me
+            - name: SKIP_INITIAL_GEOLITE_DOWNLOAD
+              value: "true"
+            - name: TZ
+              value: Europe/Paris
+          readinessProbe:
+            httpGet:
+              path: /rest/health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /rest/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shlink
+  namespace: shlink
+spec:
+  selector:
+    app: shlink
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shlink-web
+  namespace: shlink
+  labels:
+    app: shlink-web
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: shlink-web
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: shlink-web
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: shlink-web
+          image: ghcr.io/shlinkio/shlink-web-client:stable@sha256:dc8bf3565a25bd0602ff11ee352920830ce457ab58a2b2c62f2ebb23e8c8b9ee
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SHLINK_SERVER_URL
+              value: https://go.axtazer.me
+            - name: SHLINK_SERVER_NAME
+              value: Harkesh
+            - name: SHLINK_SERVER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: shlink-secrets
+                  key: INITIAL_API_KEY
+            - name: TZ
+              value: Europe/Paris
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "64Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shlink-web
+  namespace: shlink
+spec:
+  selector:
+    app: shlink-web
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP

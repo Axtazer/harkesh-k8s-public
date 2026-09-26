@@ -1,0 +1,144 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wings
+  labels:
+    shared-gateway-access: "true"
+---
+# --- ServiceAccount ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wings
+  namespace: wings
+---
+# --- Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wings
+  namespace: wings
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: wings
+  template:
+    metadata:
+      labels:
+        app: wings
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: wings
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      securityContext:
+        fsGroupChangePolicy: "Always"
+        supplementalGroups: [987] # Autorisation groupe Docker (GID 987)
+      nodeSelector:
+        kubernetes.io/hostname: harkesh
+      containers:
+        - name: wings
+          image: ghcr.io/pelican/wings:v1.0.0-beta29@sha256:12342c181eefc30641d23f950edc5a0dd5da30d70821efab1b8d866f4d3999cf
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            runAsGroup: 0
+          tty: true
+          env:
+            - name: TZ
+              value: "Europe/Paris"
+            - name: WINGS_UID
+              value: "988"
+            - name: WINGS_GID
+              value: "988"
+            - name: WINGS_USERNAME
+              value: "pelican"
+            - name: debug
+              value: "false"
+          ports:
+            - containerPort: 8080
+            - containerPort: 2022
+            - containerPort: 8443
+          volumeMounts:
+            - mountPath: /var/run/docker.sock
+              name: docker-sock
+            - mountPath: /var/lib/docker/containers
+              name: docker-containers
+            - mountPath: /etc/pelican
+              name: pelican-config
+            - mountPath: /var/lib/pelican
+              name: pelican-data
+            - mountPath: /var/log/pelican
+              name: pelican-logs
+            - mountPath: /tmp/pelican
+              name: pelican-tmp
+            - mountPath: /etc/ssl/certs
+              name: ssl-certs
+              readOnly: true
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: docker-containers
+          hostPath:
+            path: /var/lib/docker/containers
+            type: DirectoryOrCreate
+        - name: pelican-config
+          hostPath:
+            path: /etc/pelican
+            type: DirectoryOrCreate
+        - name: pelican-data
+          hostPath:
+            path: /var/lib/pelican
+            type: DirectoryOrCreate
+        - name: pelican-logs
+          hostPath:
+            path: /var/log/pelican
+            type: DirectoryOrCreate
+        - name: pelican-tmp
+          hostPath:
+            path: /tmp/pelican
+            type: DirectoryOrCreate
+        - name: ssl-certs
+          hostPath:
+            path: /etc/ssl/certs
+            type: Directory
+---
+# --- Service ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wings-svc
+  namespace: wings
+spec:
+  # Le `selector` est indispensable : sans lui, Kubernetes ne construit aucun endpoint et
+  # il faut les fournir à la main. C'était le cas jusqu'ici — un EndpointSlice `wings-svc-eps`
+  # appliqué hors GitOps figeait l'IP du nœud en dur, et le Panel a cessé de joindre Wings
+  # dès que cette IP a changé (l'ancienne adresse ayant été réattribuée à une autre machine
+  # du LAN, les requêtes partaient chez le voisin).
+  #
+  # Le pod tourne en `hostNetwork`, donc son `podIP` vaut l'IP du nœud : l'endpoint suit
+  # désormais tout seul, et un simple `rollout restart` suffit après un changement d'IP.
+  selector:
+    app: wings
+  type: ClusterIP
+  ports:
+    # `port` 8443 est l'entrée du Service (ce que vise l'Ingress cloudflare-tunnel) ;
+    # `targetPort` 8080 est le port réellement écouté par Wings sur l'hôte (TLS terminé
+    # en amont par Cloudflare). Sans selector, `targetPort` était ignoré et c'est
+    # l'EndpointSlice manuel qui portait le 8080 — d'où l'écart entre les deux.
+    - name: wings-api
+      protocol: TCP
+      port: 8443
+      targetPort: 8080
+    - name: wings-sftp
+      protocol: TCP
+      port: 2022
+      targetPort: 2022
+---

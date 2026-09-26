@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: axtazer-me-tunnel
+  namespace: axtazer-me
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: axtazer.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: axtazer-me
+                port:
+                  number: 80

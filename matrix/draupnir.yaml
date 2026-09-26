@@ -1,0 +1,139 @@
+---
+# Bot de modération pour Synapse (remplaçant maintenu de Mjolnir, compatible dans les
+# deux sens). Nécessite un compte Matrix dédié (voir README, section "Draupnir —
+# créer le compte bot").
+#
+# Secret requis dans le vault k8s-home, item "draupnir" :
+#   access-token (token du compte bot, généré comme documenté dans le README)
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: draupnir-secrets
+  namespace: matrix
+spec:
+  itemPath: "vaults/k8s-home/items/draupnir"
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: draupnir-data-pv
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /srv/appdata/matrix/draupnir
+  claimRef:
+    namespace: matrix
+    name: draupnir-data-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: draupnir-data-pvc
+  namespace: matrix
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  volumeName: draupnir-data-pv
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: draupnir-config
+  namespace: matrix
+data:
+  # Chemin explicite requis -- Draupnir n'utilise PAS l'auto-découverte node-config
+  # malgré le warning NODE_ENV au démarrage (bruit d'une dépendance interne) ; sans
+  # --draupnir-config pointant ici, le process crash au démarrage (voir
+  # apps/draupnir/src/config.ts, getConfigPath()). Nom "production.yaml" par
+  # convention de la doc officielle (docs/setup_docker.md), mais le chemin est
+  # explicite donc le nom du fichier n'a pas d'importance fonctionnelle.
+  production.yaml: |
+    # Service interne (pas l'URL publique) pour les appels API du bot : évite le
+    # hairpin NAT via le Cloudflare Tunnel (le pod rappellerait sa propre URL
+    # publique en sortant du cluster puis en y rerentrant par le tunnel -- source
+    # de 502 aléatoires, contrairement aux clients externes qui n'ont pas ce
+    # problème). rawHomeserverUrl doit rester l'URL publique : Draupnir l'utilise
+    # spécifiquement pour résoudre les événements liés aux signalements d'abus.
+    homeserverUrl: "http://synapse.matrix.svc.cluster.local:8008"
+    rawHomeserverUrl: "https://matrix.axtazer.me"
+
+    # Token chargé depuis un fichier (secret monté), voir --access-token-path dans
+    # les args du conteneur -- jamais en clair ici.
+
+    # Compte qui sera invité dans le salon de gestion créé automatiquement au
+    # premier démarrage.
+    initialManager: "@axtazer:matrix.axtazer.me"
+
+    dataPath: "/data/storage"
+    logLevel: "INFO"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: draupnir
+  namespace: matrix
+  labels:
+    app: draupnir
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: draupnir
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: draupnir
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: draupnir
+          image: gnuxie/draupnir:v3.1.0@sha256:eb61e8376116393fb1d04e284b22faad5fb0bfb11991ad71b8b60a96b1b1df7e
+          args:
+            - "bot"
+            - "--draupnir-config"
+            - "/data/config/production.yaml"
+            - "--access-token-path"
+            - "/data/secrets/access-token"
+          env:
+            - name: TZ
+              value: Europe/Paris
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /data/config
+            - name: secrets
+              mountPath: /data/secrets
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: draupnir-data-pvc
+        - name: config
+          configMap:
+            name: draupnir-config
+        - name: secrets
+          secret:
+            secretName: draupnir-secrets
+            items:
+              - key: access-token
+                path: access-token

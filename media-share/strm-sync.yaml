@@ -1,0 +1,191 @@
+---
+# Génère l'arbre .strm de la bibliothèque du pair dans /mnt/hdd/media/remote/<pair>,
+# que Jellyfin monte en lecture seule et scanne comme une bibliothèque normale.
+#
+# Un .strm = un fichier texte d'une ligne contenant l'URL. Rien n'est téléchargé :
+# le scan de bibliothèque porte sur des fichiers de ~100 octets, et les octets vidéo
+# ne transitent qu'au moment de la lecture.
+#
+# Prérequis : /mnt/hdd/media/remote doit exister et appartenir à 1000:984 AVANT le
+# premier run (`sudo install -d -o 1000 -g 984 -m 2775 /mnt/hdd/media/remote`). Un
+# DirectoryOrCreate créé par le kubelet le serait en root:root 0755, et ce job — qui
+# tourne en 1000:984 comme le reste de la stack media — ne pourrait pas y écrire.
+#
+# IMPORTANT côté Jellyfin, sur CETTE bibliothèque uniquement : désactiver trickplay,
+# extraction des chapitres, analyse au démarrage et surveillance temps réel. Sinon
+# Jellyfin rapatrie l'intégralité des fichiers du pair pour générer les vignettes.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: media-share-strm-sync
+  namespace: media
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  strm-sync.py: |
+    #!/usr/bin/env python3
+    """Reconstruit l'arbre de fichiers .strm pointant vers la bibliotheque du pair.
+
+    Parcourt le listing JSON de static-web-server (cote pair, via le proxy media-share)
+    et ecrit un .strm par fichier video.
+
+    L'arbre est construit dans un repertoire de staging puis permute d'un coup : si le
+    pair est injoignable ou repond mal, la bibliotheque deja en place n'est pas touchee.
+    """
+    import json
+    import os
+    import pathlib
+    import shutil
+    import sys
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    BASE_URL = os.environ["REMOTE_URL"].rstrip("/")
+    DEST = pathlib.Path(os.environ["DEST_DIR"])
+    TIMEOUT = int(os.environ.get("HTTP_TIMEOUT", "30"))
+
+    VIDEO_EXT = {
+        ".mkv", ".mp4", ".m4v", ".avi", ".mov",
+        ".ts", ".m2ts", ".webm", ".mpg", ".mpeg", ".wmv",
+    }
+    # Garde-fous : le listing vient d'une machine qu'on ne controle pas.
+    MAX_DEPTH = 12
+    MAX_FILES = 100000
+
+
+    def fetch_listing(rel):
+        url = "{}/{}/".format(BASE_URL, urllib.parse.quote(rel)) if rel else BASE_URL + "/"
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+            payload = json.load(resp)
+        if not isinstance(payload, list):
+            raise ValueError("listing inattendu pour {!r} (pas un tableau JSON)".format(url))
+        return payload
+
+
+    def walk(rel, depth, found):
+        if depth > MAX_DEPTH:
+            print("profondeur max atteinte, {!r} ignore".format(rel), file=sys.stderr)
+            return
+        for entry in fetch_listing(rel):
+            name = entry.get("name", "")
+            # Un nom contenant un separateur ou remontant l'arbre est forcement hostile.
+            if not name or "/" in name or name in (".", ".."):
+                continue
+            child = "{}/{}".format(rel, name) if rel else name
+            if entry.get("type") == "directory":
+                walk(child, depth + 1, found)
+            elif pathlib.PurePosixPath(name).suffix.lower() in VIDEO_EXT:
+                if len(found) >= MAX_FILES:
+                    raise RuntimeError("plus de {} fichiers, arret par securite".format(MAX_FILES))
+                found.append(child)
+
+
+    def main():
+        staging = DEST.parent / ".{}.staging".format(DEST.name)
+        shutil.rmtree(staging, ignore_errors=True)
+
+        found = []
+        try:
+            walk("", 0, found)
+        except (urllib.error.URLError, OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+            print("echec du parcours ({}) - bibliotheque existante conservee".format(exc), file=sys.stderr)
+            return 1
+
+        for rel in found:
+            target = staging / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            url = "{}/{}".format(BASE_URL, urllib.parse.quote(rel))
+            target.with_suffix(".strm").write_text(url + "\n", encoding="utf-8")
+
+        # L'ancien arbre ne disparait qu'une fois le nouveau pret et complet.
+        previous = DEST.parent / ".{}.previous".format(DEST.name)
+        shutil.rmtree(previous, ignore_errors=True)
+        if DEST.exists():
+            DEST.rename(previous)
+        DEST.parent.mkdir(parents=True, exist_ok=True)
+        staging.rename(DEST)
+        shutil.rmtree(previous, ignore_errors=True)
+
+        print("{} fichier(s) .strm ecrits dans {}".format(len(found), DEST))
+        return 0
+
+
+    if __name__ == "__main__":
+        sys.exit(main())
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: media-share-strm-sync
+  namespace: media
+  labels:
+    app: strm-sync
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  schedule: "17 */6 * * *"
+  timeZone: Europe/Paris
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: strm-sync
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            # Propriétaire de /mnt/hdd/media (groupe media 984) : le job écrit
+            # l'arbre .strm, il ne touche à aucun fichier média.
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 984
+          containers:
+            - name: strm-sync
+              image: python:3.14-alpine@sha256:9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
+              command: ["python3", "/opt/strm-sync/strm-sync.py"]
+              env:
+                - name: PEER_NAME
+                  value: peer1
+                - name: REMOTE_URL
+                  value: http://media-share.media.svc.cluster.local:8081
+                - name: DEST_DIR
+                  value: /remote/$(PEER_NAME)
+                - name: TZ
+                  value: Europe/Paris
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+                seccompProfile:
+                  type: RuntimeDefault
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+              volumeMounts:
+                - name: script
+                  mountPath: /opt/strm-sync
+                  readOnly: true
+                - name: remote
+                  mountPath: /remote
+          volumes:
+            - name: script
+              configMap:
+                name: media-share-strm-sync
+            - name: remote
+              hostPath:
+                path: /mnt/hdd/media/remote
+                type: DirectoryOrCreate

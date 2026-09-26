@@ -1,0 +1,77 @@
+---
+# media-share (namespace media, deny-all défini dans media-stack/networkpolicy.yaml).
+#   jellyfin, strm-sync ─► media-share:8081  (proxy vers la bibliothèque du pair)
+#   media-share         ─► Internet tout port (tunnel WireGuard Mullvad de gluetun ;
+#                          le tunnel vers le pair est encapsulé dedans, rien ne sort
+#                          en clair du pod), DNS via la règle commune
+#   media-share:8080    ◄─ pair, via wg1 UNIQUEMENT
+#
+# ⚠️ Le trafic qui arrive sur wg1 est déjà déchiffré quand il entre dans le netns :
+# Cilium ne le voit pas (interface hors de sa datapath eBPF) et AUCUNE règle de ce
+# fichier ne s'y applique. Le filtre du côté tunnel, ce sont les règles iptables du
+# sidecar wg-tunnel (media-share.yaml) — ne pas les supprimer en croyant que ces
+# NetworkPolicies prennent le relais.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-share-allow-ingress-internal
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app: media-share
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [jellyfin, strm-sync]
+      ports:
+        - port: 8081
+          protocol: TCP
+---
+# Tout l'egress part par gluetun (UDP vers le serveur Mullvad, port variable selon le
+# serveur choisi). Les plages privées restent bloquées : rien ne peut atteindre le
+# cluster ou le LAN en contournant le VPN.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-share-allow-egress-vpn
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app: media-share
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: strm-sync-allow-egress-media-share
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app: strm-sync
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: media-share
+      ports:
+        - port: 8081
+          protocol: TCP

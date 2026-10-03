@@ -1,0 +1,58 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-flo-pro
+  namespace: flo-pro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: dev-flo-pro
+  template:
+    metadata:
+      labels:
+        app: dev-flo-pro
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: dev-flo-pro
+          image: ghcr.io/axtazer/flo-pro:dev@sha256:82b9d7144a791e1aa105acd65f1c3a328755de83a103ceb1c5e81b1192c3e5df
+          ports:
+            - containerPort: 3000
+          env:
+            - name: TZ
+              value: Europe/Paris
+          envFrom:
+            - secretRef:
+                name: flo-pro-env
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          # Mesuré au repos (kubectl top) : ~35Mi / 1-2m CPU. Limits larges, à resserrer si besoin.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dev-flo-pro
+  namespace: flo-pro
+spec:
+  selector:
+    app: dev-flo-pro
+  ports:
+    - port: 81
+      targetPort: 3000

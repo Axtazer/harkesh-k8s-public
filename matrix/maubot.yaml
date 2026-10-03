@@ -1,0 +1,266 @@
+---
+# Maubot — framework de bots Matrix (plugins). Utilisé ici pour diffuser des flux
+# RSS/Atom dans des salons via le plugin officiel xyz.maubot.rss.
+#
+# Nécessite un compte Matrix dédié pour le bot (voir README, section
+# "Maubot — créer le compte bot et diffuser des flux RSS").
+#
+# Secrets requis dans le vault k8s-home, item "maubot" :
+#   admin-password    (mot de passe de l'utilisateur "axtazer" de l'interface web)
+#   unshared-secret   (signe les jetons d'API de l'interface web)
+#   Générer les deux avec `openssl rand -hex 32` — uniquement des caractères hex :
+#   ils sont injectés par sed dans le template de config (cf. initContainer
+#   config-init), donc pas de caractère spécial.
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: maubot-secrets
+  namespace: matrix
+spec:
+  itemPath: "vaults/k8s-home/items/maubot"
+
+---
+# Contient la base SQLite de maubot, les .mbp des plugins installés, les bases
+# SQLite par instance de plugin (dont les abonnements RSS) et la corbeille.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: maubot-data-pv
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  hostPath:
+    path: /srv/appdata/matrix/maubot
+  claimRef:
+    namespace: matrix
+    name: maubot-data-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: maubot-data-pvc
+  namespace: matrix
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 2Gi
+  volumeName: maubot-data-pv
+
+---
+# config.yaml est un template : les placeholders __XXX__ sont substitués par
+# l'initContainer config-init à partir du secret maubot-secrets (voir Deployment).
+# Le fichier doit vivre sur le volume writable : l'entrypoint de l'image
+# (docker/run.sh) le réécrit au démarrage avec yq (override_resource_path), et
+# maubot bcrypte le mot de passe admin en mémoire au chargement.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maubot-config
+  namespace: matrix
+data:
+  config.yaml: |
+    # Chemins absolus sous /data (le PVC) — évite le rewrite des chemins relatifs
+    # par défaut que fait l'entrypoint de l'image.
+    database: sqlite:/data/maubot.db
+    crypto_db_pickle_key: mau.crypto
+    crypto_database: default
+    database_opts:
+        min_size: 1
+        max_size: 10
+
+    plugin_directories:
+        upload: /data/plugins
+        load:
+        - /data/plugins
+        trash: /data/trash
+
+    # postgres: null => chaque instance de plugin reçoit sa propre base SQLite
+    # dans /data/dbs. Le plugin RSS déclare database_type: asyncpg, ce que maubot
+    # sert aussi en SQLite (aiosqlite) — pas besoin d'une base PostgreSQL dédiée.
+    plugin_databases:
+        sqlite: /data/dbs
+        postgres: null
+        postgres_max_conns_per_plugin: 3
+        postgres_opts: {}
+
+    server:
+        hostname: 0.0.0.0
+        port: 29316
+        public_url: https://maubot.axtazer.me
+        ui_base_path: /_matrix/maubot
+        plugin_base_path: /_matrix/maubot/plugin/
+        override_resource_path: /opt/maubot/frontend
+        # Sert à signer les jetons d'API de l'interface web. Valeur fixe (secret)
+        # et non "generate" : la config est réécrite depuis ce template à chaque
+        # démarrage, un secret régénéré invaliderait toutes les sessions.
+        unshared_secret: __UNSHARED_SECRET__
+
+    # Service interne (pas l'URL publique) pour les appels du bot vers le
+    # homeserver : évite le hairpin NAT via le Cloudflare Tunnel (le pod
+    # rappellerait sa propre URL publique en sortant du cluster puis en y
+    # rerentrant par le tunnel — source de 502 aléatoires). Même raison que
+    # homeserverUrl côté Draupnir.
+    # secret: null => `mbc auth --register` indisponible ; le compte du bot est
+    # créé côté Synapse (README) puis connecté par mot de passe dans l'UI.
+    homeservers:
+        matrix.axtazer.me:
+            url: http://synapse.matrix.svc.cluster.local:8008
+            secret: null
+
+    # Comptes de l'interface web. Mot de passe en clair ici (monté depuis le
+    # secret), bcrypté par maubot au démarrage.
+    # "root" ne peut PAS se connecter par mot de passe, quoi qu'on mette en face :
+    # maubot.config.Config.check_password() renvoie False d'emblée pour cet
+    # utilisateur (il n'existe que pour les jetons signés du CLI mbc). D'où un
+    # compte nommé pour le login web.
+    admins:
+        root: ""
+        axtazer: __ADMIN_PASSWORD__
+
+    api_features:
+        login: true
+        plugin: true
+        plugin_upload: true
+        instance: true
+        instance_database: true
+        client: true
+        client_proxy: true
+        client_auth: true
+        # Interface de développement (upload de plugins non packagés) — inutile
+        # ici, l'UI ne sert qu'à installer les .mbp officiels.
+        dev_open: false
+        log: true
+
+    # Logs sur stdout uniquement (pas de handler "file" : les logs se lisent avec
+    # kubectl logs, et rien n'écrit dans /var/log).
+    logging:
+        version: 1
+        formatters:
+            normal:
+                format: "[%(asctime)s] [%(levelname)s@%(name)s] %(message)s"
+        handlers:
+            console:
+                class: logging.StreamHandler
+                formatter: normal
+        loggers:
+            maubot:
+                level: INFO
+            mau:
+                level: INFO
+            aiohttp:
+                level: WARNING
+        root:
+            level: INFO
+            handlers: [console]
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maubot
+  namespace: matrix
+  labels:
+    app: maubot
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: maubot
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: maubot
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: config-init
+          image: dock.mau.dev/maubot/maubot:v0.6.0@sha256:6968ddea1e08aa7f8ac70ac7a706663fe8d7b4d6f96cd7a6bb8548637fb8cd17
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              mkdir -p /data/plugins /data/trash /data/dbs
+              sed \
+                -e "s#__UNSHARED_SECRET__#${UNSHARED_SECRET}#g" \
+                -e "s#__ADMIN_PASSWORD__#${ADMIN_PASSWORD}#g" \
+                /template/config.yaml > /data/config.yaml
+          env:
+            - name: UNSHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: maubot-secrets
+                  key: unshared-secret
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: maubot-secrets
+                  key: admin-password
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config-template
+              mountPath: /template
+              readOnly: true
+      containers:
+        - name: maubot
+          image: dock.mau.dev/maubot/maubot:v0.6.0@sha256:6968ddea1e08aa7f8ac70ac7a706663fe8d7b4d6f96cd7a6bb8548637fb8cd17
+          # L'entrypoint démarre root (chown du volume) puis bascule sur
+          # UID/GID 1337 via su-exec — pas de securityContext runAsUser ici,
+          # il empêcherait ce chown.
+          env:
+            - name: TZ
+              value: Europe/Paris
+          ports:
+            - name: http
+              containerPort: 29316
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          # L'API de management demande une authentification sur tous ses
+          # endpoints : sonde TCP plutôt qu'un GET qui répondrait 401.
+          livenessProbe:
+            tcpSocket:
+              port: 29316
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 29316
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              memory: 768Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: maubot-data-pvc
+        - name: config-template
+          configMap:
+            name: maubot-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: maubot
+  namespace: matrix
+spec:
+  selector:
+    app: maubot
+  ports:
+    - name: http
+      port: 29316
+      targetPort: 29316

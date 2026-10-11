@@ -1,0 +1,30 @@
+---
+# Projet ArgoCD "default" restreint : seules les sources listées peuvent être déployées,
+# uniquement sur ce cluster. Une Application pointant ailleurs (faute de frappe, dépôt
+# inconnu) est refusée au sync ("repository not permitted in project") — les ressources
+# déjà déployées ne sont pas touchées. Ajouter ici toute nouvelle source (chart Helm, dépôt git).
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+  namespace: argocd
+spec:
+  sourceRepos:
+    - https://github.com/Axtazer/harkesh-k8s
+    - https://argoproj.github.io/argo-helm                    # argo-cd (ArgoCD auto-géré, argocd/argocd.yaml)
+    - https://github.com/kubernetes-sigs/gateway-api        # CRDs Gateway API (infra/cilium/gateway-api-crds.yaml)
+    - https://github.com/rancher/local-path-provisioner     # StorageClass local-path (argocd/local-path-provisioner.yaml)
+    - https://helm.cilium.io                                 # cilium
+    - https://helm.strrl.dev                                 # cloudflare-tunnel-ingress-controller
+    - https://nvidia.github.io/dcgm-exporter/helm-charts     # dcgm-exporter
+    - https://nvidia.github.io/k8s-device-plugin             # nvidia-device-plugin
+    - https://victoriametrics.github.io/helm-charts          # victoria-metrics-k8s-stack
+    - https://kubernetes-sigs.github.io/metrics-server       # metrics-server
+    - 8gears.container-registry.com/library                  # chart n8n (OCI)
+    - oci://8gears.container-registry.com/library
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: '*'
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'

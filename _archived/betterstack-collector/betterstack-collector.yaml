@@ -1,0 +1,29 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: betterstack-collector
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    chart: collector
+    repoURL: https://betterstackhq.github.io/collector-helm-chart
+    targetRevision: "0.1.43"
+    helm:
+      values: |
+        collector:
+          envFrom:
+            - secretRef:
+                name: better-stack-collector-secret
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,97 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-dcgm-exporter
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: dcgm-exporter
+  url: https://nvidia.github.io/dcgm-exporter/helm-charts
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-nvidia-device-plugin
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: nvidia-device-plugin
+  url: https://nvidia.github.io/k8s-device-plugin
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-cilium
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: cilium
+  url: https://helm.cilium.io
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-strrl
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: strrl.dev
+  url: https://helm.strrl.dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-victoria-metrics
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: victoria-metrics
+  url: https://victoriametrics.github.io/helm-charts
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-8gears
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: 8gears
+  enableOCI: "true"
+  url: 8gears.container-registry.com/library
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-metrics-server
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: metrics-server
+  url: https://kubernetes-sigs.github.io/metrics-server
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-argo
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: argo
+  url: https://argoproj.github.io/argo-helm

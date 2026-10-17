@@ -1,0 +1,184 @@
+---
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace authentik.
+# Les règles ci-dessous ré-ouvrent uniquement les flux connus :
+#   cloudflared              ─► authentik-server:9000 (auth.axtazer.me, routes.yaml)
+#   authentik-server/-worker ─► postgresql:5432 (AUTHENTIK_POSTGRESQL__HOST=postgresql)
+#   authentik-server         ─► Internet 443 (sources OAuth/SAML/OIDC, JWKS distants, captcha, HIBP)
+#   authentik-worker         ─► Internet 443 (vérif. de version, transports de notification
+#                                webhook — ex. ntfy.axtazer.me —, synchro providers/sources, blueprints OCI)
+#   tous                     ─► DNS (kube-system:53)
+# Pas de Redis (supprimé depuis authentik 2025.10, tout passe par PostgreSQL) ni de flux
+# direct server <-> worker. L'outpost embarqué tourne dans le pod server et parle au cœur
+# en local (loopback, non filtré). Pas d'accès à l'API K8s (automountServiceAccountToken: false
+# sur les 3 pods → pas d'intégration Kubernetes des outposts) : aucune CiliumNetworkPolicy requise.
+# Les avatars Gravatar sont chargés par le navigateur de l'utilisateur, pas par le pod.
+# Les apps clientes (OIDC) passent par l'URL publique auth.axtazer.me → Cloudflare → cloudflared,
+# donc couvertes par la règle d'ingress cloudflared ; aucune règle inter-namespace.
+# L'URL interne http://authentik-server.authentik.svc.cluster.local:9000 (README) n'est PAS
+# autorisée : un client qui l'utiliserait (back-channel token/userinfo/JWKS) doit passer par
+# l'URL publique, ou ajouter ici un ingress ciblé depuis son namespace sur 9000/TCP.
+# Non ouverts faute de consommateur : 9443 (https, absent de routes.yaml), 9300 (métriques,
+# aucun ServiceMonitor/VMServiceScrape), port 80 sortant (aucune URL http:// connue), SMTP
+# (aucune variable AUTHENTIK_EMAIL__* → réglages globaux = localhost:25 ; voir la règle worker
+# pour l'activer).
+# Les probes kubelet ne sont pas concernées (trafic depuis l'hôte, toujours autorisé par Cilium).
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n authentik --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentik-default-deny
+  namespace: authentik
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Résolution DNS (CoreDNS dans kube-system) pour tous les pods du namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentik-allow-egress-dns
+  namespace: authentik
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# connecteur cloudflared (namespace cloudflare-tunnel-ingress-controller) -> authentik-server:9000
+# Seul port exposé par routes.yaml (auth.axtazer.me). 9443 (https) n'a aucun consommateur.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentik-server-allow-ingress-cloudflared
+  namespace: authentik
+spec:
+  podSelector:
+    matchLabels:
+      app: authentik-server
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 9000
+          protocol: TCP
+---
+# authentik-server + authentik-worker -> postgresql:5432 (interne au namespace)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentik-allow-egress-postgresql
+  namespace: authentik
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [authentik-server, authentik-worker]
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgresql
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+# postgresql accepte les connexions depuis server et worker (miroir de la règle ci-dessus)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-allow-ingress-authentik
+  namespace: authentik
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [authentik-server, authentik-worker]
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+# authentik-server -> internet 443 (sources OAuth/SAML/OIDC, JWKS distants, captcha, HIBP).
+# Exclut les plages privées pour ne pas réautoriser l'accès aux autres namespaces/services
+# du cluster ni au LAN. Ajouter 80 ici si une source/URL de métadonnées est en http://.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentik-server-allow-egress-internet
+  namespace: authentik
+spec:
+  podSelector:
+    matchLabels:
+      app: authentik-server
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+---
+# authentik-worker -> internet 443 (vérification de version, transports de notification
+# webhook — ntfy via https://ntfy.axtazer.me —, synchro SCIM/Google/Entra, blueprints OCI).
+# Les e-mails (Email stage, transport e-mail, `ak test_email`) sont envoyés par le worker :
+# décommenter les ports SMTP si une Email stage / un transport a ses propres réglages SMTP
+# (configurés en base via l'UI, invisibles dans ce dépôt). Ajouter 80 si un webhook est en http://.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentik-worker-allow-egress-internet
+  namespace: authentik
+spec:
+  podSelector:
+    matchLabels:
+      app: authentik-worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+        # SMTP (désactivé) :
+        # - {port: 587, protocol: TCP}
+        # - {port: 465, protocol: TCP}

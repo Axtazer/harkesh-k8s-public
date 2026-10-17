@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: french-breakfast-tunnel
+  namespace: french-breakfast
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: croissante.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: french-breakfast
+                port:
+                  number: 80

@@ -1,0 +1,134 @@
+---
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace shlink.
+# Les règles ci-dessous ré-ouvrent uniquement les flux connus :
+#   cloudflared ─► shlink:8080      (go.axtazer.me : redirections + API REST /rest/*)
+#   cloudflared ─► shlink-web:8080  (shlink.axtazer.me : SPA statique servie par nginx)
+#   shlink      ─► postgres:5432
+#   shlink      ─► Internet 443     (GeoLite2 : download.maxmind.com puis redirection vers le stockage
+#                                    R2 de MaxMind ; SKIP_INITIAL_GEOLITE_DOWNLOAD ne saute que le
+#                                    téléchargement au démarrage, la base est ensuite récupérée/mise à
+#                                    jour à la demande en tâche de fond si GEOLITE_LICENSE_KEY est défini)
+#   shlink-web  ─► rien             (le client web tourne dans le NAVIGATEUR, qui appelle directement
+#                                    https://go.axtazer.me — d'où CORS_ALLOW_ORIGIN côté shlink ; nginx ne
+#                                    proxifie rien)
+#   postgres    ─► rien
+#   tous        ─► DNS (kube-system:53)
+# Ports = ports des conteneurs (8080), pas ceux des Services (80).
+# Les probes kubelet ne sont pas concernées (trafic depuis l'hôte, toujours autorisé par Cilium).
+# Aucune supervision ne scrappe ce namespace (pas de ServiceMonitor/VMServiceScrape, Shlink n'expose
+# pas de /metrics) ; les logs sont lus par vlagent sur le disque de l'hôte, sans flux réseau.
+# Accès de secours : `kubectl port-forward` passe par le netns du pod, non filtré. Une HTTPRoute
+# rattachée au shared-gateway demanderait en plus une CiliumNetworkPolicy fromEntities: [ingress].
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n shlink --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shlink-default-deny
+  namespace: shlink
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Résolution DNS (CoreDNS dans kube-system) pour tous les pods du namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shlink-allow-egress-dns
+  namespace: shlink
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# cloudflared (connecteur géré par cloudflare-tunnel-ingress-controller) -> shlink + shlink-web.
+# Les deux conteneurs écoutent sur 8080 (Services en 80 -> targetPort 8080).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shlink-allow-ingress-cloudflared
+  namespace: shlink
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [shlink, shlink-web]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# shlink -> postgres (DB_HOST postgres.shlink.svc.cluster.local) + Internet 443 (GeoLite2 MaxMind).
+# Les plages privées restent bloquées. Port 80 volontairement fermé : à ajouter seulement si
+# AUTO_RESOLVE_TITLES=true est activé (Shlink télécharge alors chaque URL longue pour lire son <title>).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shlink-allow-egress
+  namespace: shlink
+spec:
+  podSelector:
+    matchLabels:
+      app: shlink
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+---
+# postgres accepte les connexions depuis shlink uniquement (miroir de la règle ci-dessus)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-allow-ingress-shlink
+  namespace: shlink
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: shlink
+      ports:
+        - port: 5432
+          protocol: TCP

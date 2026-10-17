@@ -1,0 +1,91 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: root-panel
+  labels:
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+    shared-gateway-access: "true"
+---
+# Panel admin (root.axtazer.me) : page statique de liens vers tous les panels d'admin.
+# Le contenu (liste des liens, logos, conf nginx) vit dans le repo privé Axtazer/root-panel,
+# volontairement hors de ce dépôt (miroir public) ; ici, uniquement le déploiement.
+# Image mise à jour par le workflow update-image (app "root-panel") à chaque push sur main.
+# À protéger par une policy Cloudflare Access (dashboard Zero Trust).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: root-panel
+  namespace: root-panel
+  labels:
+    app: root-panel
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: root-panel
+  template:
+    metadata:
+      labels:
+        app: root-panel
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        # Utilisateur nginx de l'image alpine (101) : pid et fichiers temporaires dans /tmp
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: nginx
+          image: ghcr.io/axtazer/root-panel:latest@sha256:2e2e654768c87df7f26adf1baa86a66f8a0b4990c1780794d429fee60ea37f36
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: root-panel
+  namespace: root-panel
+spec:
+  selector:
+    app: root-panel
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

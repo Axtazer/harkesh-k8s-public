@@ -1,0 +1,72 @@
+---
+# Tetragon (eBPF, équipe Cilium) : observabilité sécurité à l'exécution des pods.
+# Les événements exportés sortent sur le stdout du conteneur export-stdout, donc arrivent
+# automatiquement dans VictoriaLogs (argocd/victoria-logs.yaml) — requête Grafana :
+#   kubernetes.container_name:"export-stdout" process_exec
+#
+# Export volontairement restreint (CPU/disque : le nœud sert aussi de serveur de jeux) :
+# - seuls les exec de shells et d'outils réseau dans un conteneur (signe classique d'une
+#   compromission : reverse shell, téléchargement de payload) + événements de TracingPolicy ;
+# - processus de l'hôte, kube-system et health checks exclus (défaut du chart) ;
+# - plafond de 600 événements/min.
+# Aucune TracingPolicy pour l'instant : les kprobes (fichiers sensibles, etc.) s'ajoutent
+# ensuite sous forme de CR TracingPolicy dans ce dépôt.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tetragon
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    chart: tetragon
+    repoURL: https://helm.cilium.io
+    targetRevision: 1.7.1
+    helm:
+      values: |
+        tetragon:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          exportRateLimit: 600
+          exportAllowList: |-
+            {"event_set":["PROCESS_EXEC"],"binary_regex":["(^|/)(sh|bash|ash|dash|zsh|nc|ncat|netcat|socat|curl|wget|python3?|perl)$"]}
+            {"event_set":["PROCESS_KPROBE","PROCESS_TRACEPOINT","PROCESS_LSM"]}
+          prometheus:
+            metricsLabelFilter: "namespace,workload"
+            serviceMonitor:
+              enabled: true
+        export:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+        tetragonOperator:
+          podSecurityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

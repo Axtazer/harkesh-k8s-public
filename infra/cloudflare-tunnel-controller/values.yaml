@@ -1,0 +1,27 @@
+---
+cloudflare:
+  secretRef:
+    name: cloudflare-tunnel-controller
+    apiTokenKey: apiToken
+    accountIDKey: accountId
+    tunnelNameKey: tunnelName
+
+ingressClass:
+  name: cloudflare-tunnel
+
+replicaCount: 1
+
+cloudflared:
+  # HTTP/2 (TCP 7844) plutôt que QUIC (UDP 7844, défaut "auto") : en QUIC, les 4
+  # connexions vers l'edge tombaient simultanément toutes les ~5 min ("timeout: no
+  # recent network activity") → micro-coupures de tous les sites. Le chemin UDP
+  # sortant (box/NAT) n'est pas fiable ; TCP l'est.
+  protocol: http2
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi

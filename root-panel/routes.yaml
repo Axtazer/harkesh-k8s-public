@@ -1,0 +1,21 @@
+---
+# Protéger root.axtazer.me par une policy Cloudflare Access (dashboard Zero Trust) :
+# la page liste toutes les URLs d'administration de l'infra.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: root-panel-tunnel
+  namespace: root-panel
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: root.axtazer.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: root-panel
+                port:
+                  number: 8080

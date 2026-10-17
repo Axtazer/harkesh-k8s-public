@@ -1,0 +1,1027 @@
+---
+# Alerting Grafana provisionné (sidecar grafana_alert, cf. argocd/victoria-metrics-k8s-stack.yaml).
+# Seul Grafana alerte (alertmanager et vmalert désactivés). Notifications -> ntfy, topic « grafana »,
+# par l'URL interne (indépendante du tunnel Cloudflare, qui fait lui-même l'objet d'une alerte).
+# Corps = publication JSON ntfy construite par le modèle « ntfy.payload » :
+#   🚨 severity=critical -> priorité 5 (urgent), rappel toutes les 4 h
+#   ⚠️ autres            -> priorité 3 (default), rappel toutes les 12 h
+#   ✅ résolu            -> priorité 2 (low)
+# Regroupement par alertname (une notification pour N pods/disques), group_wait 1m, group_interval 10m.
+# Token ntfy : OnePasswordItem grafana-ntfy-token (grafana-onepassword.yaml) -> env NTFY_TOKEN.
+# ⚠️ Grafana interpole les variables d'environnement dans ces fichiers : un « $ » littéral s'écrit « $$ »
+# (les modèles utilisent donc .Labels / .Values, jamais $labels / $values ni de variables $x).
+# Base Grafana en emptyDir : silences et état des alertes repartent de zéro à chaque redémarrage du pod
+# (une alerte déjà active est renvoyée une fois). Pour couper une alerte durablement : modifier la règle ici.
+# Tester un changement de modèle : Grafana -> Alerting -> Contact points -> ntfy -> Test.
+# Modèle de message, contact point ntfy, politique de notification
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-alerting-ntfy
+  namespace: monitoring
+  labels:
+    grafana_alert: "1"
+data:
+  ntfy.yaml: |
+    apiVersion: 1
+    templates:
+    - orgId: 1
+      name: ntfy
+      template: |
+        {{ define "ntfy.title" -}}
+        {{ if eq .Status "resolved" }}✅ Résolu : {{ else if eq .CommonLabels.severity "critical" }}🚨 {{ else }}⚠️ {{ end -}}
+        {{ .CommonLabels.alertname }}{{ if gt (len .Alerts.Firing) 1 }} ({{ len .Alerts.Firing }}){{ end }}
+        {{- end }}
+        {{ define "ntfy.message" -}}
+        {{ range .Alerts.Firing }}• {{ .Annotations.summary }}
+        {{ end }}{{ range .Alerts.Resolved }}✓ {{ .Annotations.summary }}
+        {{ end }}{{ if eq .Status "firing" }}{{ with (index .Alerts.Firing 0).Annotations.description }}
+        {{ . }}{{ end }}{{ end }}
+        {{- end }}
+        {{ define "ntfy.payload" -}}
+        {{ if eq .Status "resolved" -}}
+        {{ coll.Dict "topic" "grafana" "title" (tmpl.Exec "ntfy.title" .) "message" (tmpl.Exec "ntfy.message" .)
+             "priority" 2 "tags" (coll.Slice "white_check_mark") "click" .ExternalURL | data.ToJSON }}
+        {{- else if eq .CommonLabels.severity "critical" -}}
+        {{ coll.Dict "topic" "grafana" "title" (tmpl.Exec "ntfy.title" .) "message" (tmpl.Exec "ntfy.message" .)
+             "priority" 5 "tags" (coll.Slice "rotating_light") "click" .ExternalURL | data.ToJSON }}
+        {{- else -}}
+        {{ coll.Dict "topic" "grafana" "title" (tmpl.Exec "ntfy.title" .) "message" (tmpl.Exec "ntfy.message" .)
+             "priority" 3 "tags" (coll.Slice "warning") "click" .ExternalURL | data.ToJSON }}
+        {{- end }}
+        {{- end }}
+    contactPoints:
+    - orgId: 1
+      name: ntfy
+      receivers:
+      - uid: ntfy
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          url: http://ntfy.ntfy.svc.cluster.local/
+          httpMethod: POST
+          authorization_scheme: Bearer
+          authorization_credentials: $NTFY_TOKEN
+          payload:
+            template: '{{ template "ntfy.payload" . }}'
+    policies:
+    - orgId: 1
+      receiver: ntfy
+      group_by:
+      - alertname
+      group_wait: 1m
+      group_interval: 10m
+      repeat_interval: 12h
+      routes:
+      - receiver: ntfy
+        object_matchers:
+        - - severity
+          - '='
+          - critical
+        repeat_interval: 4h
+---
+# Règles d'alerte (dossier Grafana « Alertes ») : nœud, Kubernetes, monitoring, sauvegardes, exposition (blackbox)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-alerting-rules
+  namespace: monitoring
+  labels:
+    grafana_alert: "1"
+data:
+  rules.yaml: |
+    apiVersion: 1
+    groups:
+    - orgId: 1
+      name: noeud
+      folder: Alertes
+      interval: 1m
+      rules:
+      - uid: harkesh-disque-avertissement
+        title: Disque presque plein
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: |-
+              100 * (1 - node_filesystem_avail_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat", mountpoint!="/mnt/hdd"}
+                / node_filesystem_size_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat", mountpoint!="/mnt/hdd"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: within_range
+                params:
+                - 85
+                - 95
+        for: 15m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: Disque {{ .Labels.mountpoint }} rempli à {{ printf "%.0f" .Values.A.Value }} %
+          description: Espace disque du nœud harkesh au-dessus de 85 %. Dashboard Serveur harkesh → Disques.
+      - uid: harkesh-disque-critique
+        title: Disque plein
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: |-
+              100 * (1 - node_filesystem_avail_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat", mountpoint!="/mnt/hdd"}
+                / node_filesystem_size_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat", mountpoint!="/mnt/hdd"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 95
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: Disque {{ .Labels.mountpoint }} rempli à {{ printf "%.0f" .Values.A.Value }} %
+          description: 'Moins de 5 % libres : les pods (bases de données, VictoriaMetrics) vont échouer en écriture.'
+      - uid: harkesh-hdd-avertissement
+        title: HDD média presque plein
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: |-
+              100 * (1 - node_filesystem_avail_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat", mountpoint="/mnt/hdd"}
+                / node_filesystem_size_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat", mountpoint="/mnt/hdd"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: within_range
+                params:
+                - 90
+                - 97
+        for: 30m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: HDD média /mnt/hdd rempli à {{ printf "%.0f" .Values.A.Value }} %
+          description: Faire de la place dans /mnt/hdd/media (Radarr/Sonarr vont bientôt échouer à importer).
+      - uid: harkesh-hdd-critique
+        title: HDD média plein
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: |-
+              100 * (1 - node_filesystem_avail_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat", mountpoint="/mnt/hdd"}
+                / node_filesystem_size_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat", mountpoint="/mnt/hdd"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 97
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: HDD média /mnt/hdd rempli à {{ printf "%.0f" .Values.A.Value }} %
+          description: 'Moins de 3 % libres sur /mnt/hdd : téléchargements et imports bloqués.'
+      - uid: harkesh-disque-prevision
+        title: Disque plein dans moins de 24 h
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: |-
+              (100 * (1 - node_filesystem_avail_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat"}
+                / node_filesystem_size_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat"}))
+              and on (device, mountpoint)
+              (predict_linear(node_filesystem_avail_bytes{job="node-exporter", fstype=~"ext4|xfs|btrfs|vfat"}[6h], 86400) < 0)
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 70
+        for: 1h
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ .Labels.mountpoint }} ({{ printf "%.0f" .Values.A.Value }} %) sera plein dans moins de 24 h au rythme actuel'
+          description: Tendance calculée sur les 6 dernières heures.
+      - uid: harkesh-ram-avertissement
+        title: Mémoire presque saturée
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: 100 * node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"}
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: within_range
+                params:
+                - 5
+                - 10
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: Plus que {{ printf "%.0f" .Values.A.Value }} % de RAM disponible
+          description: Les serveurs de jeux et les pods sans limite peuvent déclencher l'OOM killer.
+      - uid: harkesh-ram-critique
+        title: Mémoire saturée
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: 100 * node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"}
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: lt
+                params:
+                - 5
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: Plus que {{ printf "%.0f" .Values.A.Value }} % de RAM disponible
+          description: L'OOM killer va tuer des processus (aucun swap).
+      - uid: harkesh-oom-kill
+        title: Processus tué par manque de mémoire
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: increase(node_vmstat_oom_kill{job="node-exporter"}[10m])
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 0
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: L'OOM killer a tué {{ printf "%.0f" .Values.A.Value }} processus ces 10 dernières minutes
+          description: Voir Kubernetes harkesh → Conteneurs en attente / derniers arrêts (OOMKilled) ou journalctl -k.
+      - uid: harkesh-charge
+        title: Nœud surchargé
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: node_load15{job="node-exporter"} / scalar(count(node_cpu_seconds_total{job="node-exporter", mode="idle"}))
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 2
+        for: 15m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: Charge moyenne 15 min = {{ printf "%.1f" .Values.A.Value }} × le nombre de cœurs
+          description: 'File d''attente CPU durable : les serveurs de jeux risquent de laguer.'
+      - uid: harkesh-temp-cpu-avertissement
+        title: CPU chaud
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: max(node_hwmon_temp_celsius{job="node-exporter", chip="pci0000:00_0000:00:18_3", sensor="temp1"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: within_range
+                params:
+                - 85
+                - 95
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: CPU à {{ printf "%.0f" .Values.A.Value }} °C
+          description: Vérifier la ventilation / la poussière.
+      - uid: harkesh-temp-cpu-critique
+        title: CPU en surchauffe
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: max(node_hwmon_temp_celsius{job="node-exporter", chip="pci0000:00_0000:00:18_3", sensor="temp1"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 95
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: CPU à {{ printf "%.0f" .Values.A.Value }} °C
+          description: Throttling thermique en cours.
+      - uid: harkesh-temp-nvme
+        title: NVMe chaud
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: max(node_hwmon_temp_celsius{job="node-exporter", chip="nvme_nvme0", sensor="temp1"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 70
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: NVMe à {{ printf "%.0f" .Values.A.Value }} °C
+          description: Au-delà de ~75 °C le SSD réduit ses performances.
+      - uid: harkesh-temp-gpu-avertissement
+        title: GPU chaud
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: max by (gpu, modelName) (DCGM_FI_DEV_GPU_TEMP)
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: within_range
+                params:
+                - 83
+                - 90
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: GPU {{ .Labels.modelName }} à {{ printf "%.0f" .Values.A.Value }} °C
+          description: Transcodage Jellyfin intensif ou ventilation.
+      - uid: harkesh-temp-gpu-critique
+        title: GPU en surchauffe
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: max by (gpu, modelName) (DCGM_FI_DEV_GPU_TEMP)
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 90
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: GPU {{ .Labels.modelName }} à {{ printf "%.0f" .Values.A.Value }} °C
+          description: Proche du seuil de ralentissement de la GTX 1660.
+    - orgId: 1
+      name: kubernetes
+      folder: Alertes
+      interval: 1m
+      rules:
+      - uid: harkesh-crashloop
+        title: Pod en CrashLoopBackOff
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: max by (namespace, pod, container) (kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 0
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ .Labels.namespace }}/{{ .Labels.pod }} ({{ .Labels.container }}) redémarre en boucle'
+          description: kubectl -n {{ .Labels.namespace }} logs {{ .Labels.pod }} -c {{ .Labels.container }} --previous
+      - uid: harkesh-restarts
+        title: Conteneur qui redémarre souvent
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: round(sum by (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[1h])))
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 5
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ .Labels.namespace }}/{{ .Labels.pod }} ({{ .Labels.container }}) : {{ printf "%.0f" .Values.A.Value }} redémarrages en 1 h'
+          description: kubectl -n {{ .Labels.namespace }} describe pod {{ .Labels.pod }}
+      - uid: harkesh-pod-bloque
+        title: Pod bloqué (Pending / Failed)
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: max by (namespace, pod) (kube_pod_status_phase{phase=~"Pending|Failed|Unknown"}) * on (namespace, pod) group_left () max by (namespace, pod) (kube_pod_owner{owner_kind!="Job"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 0
+        for: 15m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ .Labels.namespace }}/{{ .Labels.pod }} n''est pas Running depuis 15 min'
+          description: kubectl -n {{ .Labels.namespace }} describe pod {{ .Labels.pod }} (image, volume, ressources ?)
+      - uid: harkesh-deployment-incomplet
+        title: Deployment incomplet
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: max by (namespace, deployment) (kube_deployment_status_replicas_unavailable)
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 0
+        for: 15m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ .Labels.namespace }}/{{ .Labels.deployment }} : {{ printf "%.0f" .Values.A.Value }} réplica(s) indisponible(s)'
+          description: kubectl -n {{ .Labels.namespace }} rollout status deploy/{{ .Labels.deployment }}
+      - uid: harkesh-statefulset-incomplet
+        title: StatefulSet incomplet
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: max by (namespace, statefulset) (kube_statefulset_status_replicas - kube_statefulset_status_replicas_ready)
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 0
+        for: 15m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ .Labels.namespace }}/{{ .Labels.statefulset }} : {{ printf "%.0f" .Values.A.Value }} réplica(s) pas prêt(s)'
+          description: kubectl -n {{ .Labels.namespace }} get pods
+    - orgId: 1
+      name: monitoring
+      folder: Alertes
+      interval: 1m
+      rules:
+      - uid: harkesh-cible-down
+        title: Cible de scrape injoignable
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: min by (job, instance) (up)
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: lt
+                params:
+                - 1
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ .Labels.job }} ({{ .Labels.instance }}) ne répond plus au scrape'
+          description: 'Métriques manquantes pour cette cible. vmagent : /targets (kubectl -n monitoring port-forward svc/vmagent-victoria-metrics-k8s-stack 8429).'
+      - uid: harkesh-collecte-arretee
+        title: Collecte des métriques arrêtée
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: absent_over_time(up{job="node-exporter"}[5m])
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 0
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: Plus aucune métrique node-exporter depuis 5 min
+          description: 'vmagent ou vmsingle ne fonctionne plus : les autres alertes sont aveugles. kubectl -n monitoring get pods'
+    - orgId: 1
+      name: sauvegardes
+      folder: Alertes
+      interval: 1m
+      rules:
+      - uid: harkesh-sauvegarde-ancienne
+        title: Sauvegarde restic trop ancienne
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: (time() - max(harkesh_backup_last_success_timestamp_seconds{mode="backup"})) / 3600
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 26
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: Dernière sauvegarde réussie il y a {{ printf "%.0f" .Values.A.Value }} h
+          description: Timer quotidien 04:00. journalctl -u harkesh-backup -n 50 ; systemctl list-timers harkesh-backup.timer
+      - uid: harkesh-verification-ancienne
+        title: Vérification restic trop ancienne
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: (time() - max(harkesh_backup_last_success_timestamp_seconds{mode="check"})) / 86400
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 8
+        for: 1h
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: Dernière vérification du dépôt restic réussie il y a {{ printf "%.0f" .Values.A.Value }} jours
+          description: Timer hebdomadaire (dimanche 07:00). journalctl -u harkesh-backup-check -n 50
+      - uid: harkesh-sauvegarde-metriques-absentes
+        title: Métriques de sauvegarde absentes
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: absent(harkesh_backup_last_success_timestamp_seconds{mode="backup"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 0
+        for: 1h
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Aucune métrique harkesh_backup_* : état des sauvegardes inconnu'
+          description: Script de l'hôte pas à jour (/usr/local/lib/harkesh-backup/) ou fichier /var/lib/node_exporter/textfile/harkesh_backup_backup.prom absent.
+      - uid: harkesh-textfile-erreur
+        title: Fichier de métriques illisible
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: max(node_textfile_scrape_error)
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: gt
+                params:
+                - 0
+        for: 15m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: node-exporter n'arrive pas à lire un fichier de /var/lib/node_exporter/textfile
+          description: Format .prom invalide ou droits (lisible par nobody). Voir les logs du pod node-exporter.
+    - orgId: 1
+      name: exposition
+      folder: Alertes
+      interval: 1m
+      rules:
+      - uid: harkesh-site-ko
+        title: Site public injoignable
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: min by (instance) (probe_success{job="blackbox-sites"})
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: lt
+                params:
+                - 1
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ .Labels.instance }} ne répond plus depuis l''extérieur'
+          description: 'Sonde Internet → Cloudflare → tunnel. Plusieurs sites KO = tunnel : kubectl -n cloudflare-tunnel-ingress-controller logs deploy/controlled-cloudflared-connector'
+      - uid: harkesh-certificat
+        title: Certificat bientôt expiré
+        condition: C
+        data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            refId: A
+            expr: (min by (instance) (probe_ssl_earliest_cert_expiry{job="blackbox-sites"}) - time()) / 86400
+            instant: true
+            range: false
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+            - evaluator:
+                type: lt
+                params:
+                - 14
+        for: 1h
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: Le certificat de {{ .Labels.instance }} expire dans {{ printf "%.0f" .Values.A.Value }} jours
+          description: 'Certificats edge Cloudflare normalement renouvelés automatiquement : vérifier le dashboard Cloudflare (SSL/TLS).'

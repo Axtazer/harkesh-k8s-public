@@ -1,0 +1,19 @@
+[Unit]
+Description=Sauvegarde harkesh (dumps + restic vers la Storage Box Hetzner)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Cache restic (index du dépôt) : sans HOME dans un service système, restic tournerait sans cache
+# et relirait tout l'index depuis la Storage Box à chaque passage. systemd crée /var/cache/restic.
+CacheDirectory=restic
+Environment=RESTIC_CACHE_DIR=/var/cache/restic
+ExecStart=/usr/local/lib/harkesh-backup/harkesh-backup.sh backup
+# Priorité haute : la sauvegarde passe avant les serveurs de jeux (choix assumé, envoi incrémental
+# court la nuit). IO best-effort niveau 0 = plus haute priorité hors temps réel.
+Nice=-5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=0
+MemoryHigh=1G
+TimeoutStartSec=12h

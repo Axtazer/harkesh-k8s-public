@@ -1,0 +1,115 @@
+---
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace flo-pro
+# (sites web flo-pro = mydomain.fr et dev-flo-pro = dev-pro.mydomain.fr, même image, même secret).
+# Flux ré-ouverts :
+#   cloudflared            ─► flo-pro:3000, dev-flo-pro:3000 (Services :80/:81 → targetPort 3000)
+#   flo-pro, dev-flo-pro   ─► Internet 443 (formulaire de contact → DISCORD_WEBHOOK_URL, CDN
+#                             NEXT_PUBLIC_CDN_URL, appels à sa propre URL publique via Cloudflare…)
+# Pas de SMTP : le secret flo-pro-env ne contient aucune variable SMTP_* / MAIL_* (vérifié le
+# 2026-10-11 : CONTACT_FROM_EMAIL, CONTACT_TO_EMAIL, DISCORD_WEBHOOK_URL, NEXT_PUBLIC_CDN_URL, SITE_URL).
+#   tous                   ─► DNS (kube-system:53)
+# Aucun flux intra-namespace (prod et dev ne se parlent pas), aucun appel inter-namespace,
+# pas de scrape VictoriaMetrics (aucun ServiceMonitor ici ; métriques conteneur via kubelet/cAdvisor).
+# Hors périmètre des policies : probes kubelet (depuis l'hôte, toujours autorisées par Cilium),
+# pull d'image GHCR (fait par containerd sur l'hôte), kubectl port-forward (accès de secours, passe
+# par le kubelet).
+# Accès de secours via HTTPRoute sur le shared-gateway Cilium (namespace labellisé
+# shared-gateway-access: "true") : NON couvert. Le trafic arrive avec l'identité Cilium réservée
+# « ingress » et serait bloqué par ce deny-all. Si une HTTPRoute est ajoutée, ajouter aussi :
+#   apiVersion: cilium.io/v2
+#   kind: CiliumNetworkPolicy
+#   metadata: {name: flo-pro-allow-ingress-gateway, namespace: flo-pro}
+#   spec:
+#     endpointSelector:
+#       matchExpressions: [{key: app, operator: In, values: [flo-pro, dev-flo-pro]}]
+#     ingress:
+#       - fromEntities: [ingress]
+#         toPorts: [{ports: [{port: "3000", protocol: TCP}]}]
+# (volontairement non activée : l'accès LAN direct est désactivé, cf. README « Accès de secours »).
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n flo-pro --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: flo-pro-default-deny
+  namespace: flo-pro
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Résolution DNS (CoreDNS dans kube-system) pour tous les pods du namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: flo-pro-allow-egress-dns
+  namespace: flo-pro
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# connecteur cloudflared (namespace cloudflare-tunnel-ingress-controller) -> sites :3000
+# Port du conteneur (containerPort 3000), pas celui des Services (80 prod / 81 dev).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: flo-pro-allow-ingress-cloudflared
+  namespace: flo-pro
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [flo-pro, dev-flo-pro]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 3000
+          protocol: TCP
+---
+# flo-pro / dev-flo-pro -> Internet HTTPS (APIs externes), exclut les plages privées
+# pour ne pas réautoriser l'accès aux autres namespaces/services du cluster ni au LAN.
+# Port 80 non ouvert : aucun appel HTTP clair attesté (à ajouter si Hubble montre des DROPPED :80).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: flo-pro-allow-egress-internet
+  namespace: flo-pro
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [flo-pro, dev-flo-pro]
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP

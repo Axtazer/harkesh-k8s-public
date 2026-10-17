@@ -1,0 +1,78 @@
+---
+# NetworkPolicies du namespace french-breakfast (Croissanté — croissante.dev)
+#
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace french-breakfast.
+# Les règles ci-dessous ré-ouvrent uniquement les flux connus :
+#   cloudflared       ─► french-breakfast:8080/TCP
+#                        (Ingress croissante.dev -> Service french-breakfast:80 -> targetPort http = 8080)
+#   french-breakfast  ─► DNS (kube-system:53 UDP+TCP), rien d'autre : app sans état, aucun secret,
+#                        aucune base de données, aucune API externe (seule variable d'env : TZ)
+# Les probes kubelet (GET /health:8080) ne sont pas concernées (trafic depuis l'hôte, toujours autorisé par Cilium).
+# Pas de scrape vmagent (aucun ServiceMonitor/VMServiceScrape pour cette app).
+# Pas de CiliumNetworkPolicy : aucun flux vers l'hôte ni vers l'API Kubernetes (automountServiceAccountToken: false).
+#
+# Accès de secours via le Gateway Cilium (label shared-gateway-access, procédure README) : ce flux est
+# BLOQUÉ par le deny-all. En cas d'activation d'une HTTPRoute, ajouter une CiliumNetworkPolicy
+# (cilium.io/v2) endpointSelector app: french-breakfast, ingress fromEntities: [ingress] -> 8080/TCP.
+#
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n french-breakfast --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: french-breakfast-default-deny
+  namespace: french-breakfast
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Résolution DNS -> CoreDNS (kube-system:53 UDP+TCP)
+# Conservée par prudence (résolveur de la libc / runtime) même si l'app ne fait
+# a priori aucun appel sortant.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: french-breakfast-allow-egress-dns
+  namespace: french-breakfast
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# cloudflared (connecteur géré par cloudflare-tunnel-ingress-controller) -> french-breakfast:8080
+# Le connecteur est un Deployment enfant créé dynamiquement par le controller
+# (label app: controlled-cloudflared-connector).
+# Port du conteneur (8080), pas celui du Service (80).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: french-breakfast-allow-ingress-cloudflared
+  namespace: french-breakfast
+spec:
+  podSelector:
+    matchLabels:
+      app: french-breakfast
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 8080
+          protocol: TCP

@@ -1,0 +1,158 @@
+---
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace livekit.
+# Les règles ci-dessous ré-ouvrent uniquement les flux connus :
+#   cloudflared    ─► livekit:7880 (signaling WebSocket + API Twirp), lk-jwt-service:8080
+#   livekit        ─► VPS relais 203.0.113.10:51820/udp (WireGuard, sidecar wg-tunnel)
+#   lk-jwt-service ─► Internet 443 (matrix.axtazer.me : well-known + openid/userinfo ;
+#                     livekit.axtazer.me : création de room via l'API publique)
+#   tous           ─► DNS (kube-system:53)
+# Média WebRTC (7881/tcp, 7882/udp) : NON couvert ici, et c'est voulu. Les participants
+# atteignent le VPS, qui fait DNAT + MASQUERADE vers 10.10.0.2 à travers WireGuard : le
+# trafic arrive déchiffré sur wg0 DANS le netns du pod et les réponses repartent par wg0
+# (route 10.10.0.0/24 dev wg0, allowed-ips 10.10.0.1/32). Cilium n'agit que sur l'interface
+# eth0 du pod (veth lxc), où ne transite que l'UDP chiffré vers 203.0.113.10:51820 ; les
+# retours du VPS sont des réponses (le pod initie la handshake + keepalive 25 s), autorisées
+# par conntrack. Le média reçu via wg0 est donc invisible dans Hubble.
+# En revanche, d'éventuels checks ICE sortants de livekit (UDP depuis 7882) vers les IP
+# publiques des clients (candidats host/srflx) partent par eth0 (hors 10.10.0.0/24) et sont
+# volontairement DROPPED : sans impact, le chemin valide passe par le VPS (10.10.0.1).
+# Ces drops UDP vers des IP publiques aléatoires dans Hubble sont donc attendus.
+# Pas de STUN/TURN externe : use_external_ip: false + node_ip fixé dans livekit-config.
+# lk-jwt-service parle à LiveKit via l'URL PUBLIQUE (LIVEKIT_URL=wss://livekit.axtazer.me,
+# donc Internet 443 -> Cloudflare -> cloudflared -> livekit:7880). Si LIVEKIT_URL passe un jour
+# à l'URL interne (livekit-signaling.livekit.svc:7880), ajouter la paire egress
+# lk-jwt-service -> app=livekit:7880 + ingress correspondant sur livekit.
+# Les probes kubelet ne sont pas concernées (trafic depuis l'hôte, toujours autorisé par Cilium).
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n livekit --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: livekit-default-deny
+  namespace: livekit
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: livekit-allow-egress-dns
+  namespace: livekit
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# cloudflared (connecteur géré par cloudflare-tunnel-ingress-controller) -> signaling LiveKit
+# (livekit.axtazer.me). Sert aussi les appels API de lk-jwt-service, qui passent par l'URL publique.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: livekit-allow-ingress-cloudflared
+  namespace: livekit
+spec:
+  podSelector:
+    matchLabels:
+      app: livekit
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 7880
+          protocol: TCP
+---
+# livekit (sidecar wg-tunnel) -> VPS relais : seul l'UDP WireGuard chiffré sort par eth0.
+# Le média (7881/tcp, 7882/udp) circule dans wg0 et n'est pas filtré par Cilium (voir en-tête).
+# ⚠ IP du VPS à modifier EN MÊME TEMPS que node_ip (ConfigMap livekit-config) et endpoint
+# (sidecar wg-tunnel) dans livekit.yaml : sinon handshake refusé en silence, signaling OK
+# mais plus aucun média dans Element Call.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: livekit-allow-egress-wireguard
+  namespace: livekit
+spec:
+  podSelector:
+    matchLabels:
+      app: livekit
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 203.0.113.10/32
+      ports:
+        - port: 51820
+          protocol: UDP
+---
+# cloudflared (connecteur géré par cloudflare-tunnel-ingress-controller) -> lk-jwt-service
+# (livekit-jwt.axtazer.me, appelé par Element Call)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lk-jwt-service-allow-ingress-cloudflared
+  namespace: livekit
+spec:
+  podSelector:
+    matchLabels:
+      app: lk-jwt-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# lk-jwt-service -> Internet 443 : vérification des tokens OpenID Matrix auprès du homeserver
+# par la découverte fédération (/.well-known/matrix/server -> "matrix.axtazer.me:443", puis
+# /_matrix/federation/v1/openid/userinfo) et API LiveKit (wss/https://livekit.axtazer.me).
+# URLs publiques -> passent par Cloudflare, aucune règle inter-namespace vers matrix.
+# Pas de 8448 : la délégation well-known force le port 443 (cf. matrix/wellknown.yaml).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lk-jwt-service-allow-egress
+  namespace: livekit
+spec:
+  podSelector:
+    matchLabels:
+      app: lk-jwt-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP

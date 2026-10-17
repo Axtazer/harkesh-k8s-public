@@ -1,0 +1,589 @@
+---
+# NetworkPolicies du namespace monitoring (victoria-metrics-k8s-stack, VictoriaLogs + vlagent,
+# cAdvisor, dcgm-exporter). Deny-all ingress + egress, puis ré-ouverture des flux connus :
+#   cloudflared        ─► grafana:3000                          (grafana.mydomain.fr)
+#   vmagent            ─► tous les pods du cluster, tout port     (scrapes ServiceMonitor/VMServiceScrape :
+#                         vmsingle:8428 (scrape + remote write), vmagent:8429, operator:8080,
+#                         kube-state-metrics:8080, grafana:3000, victoria-logs:9428, cadvisor:8080,
+#                         dcgm-exporter:9400, coredns:9153 (kube-system)…) — pas d'Internet
+#   vmagent            ─► hôte : kubelet:10250 (kubelet/cAdvisor/probes/resources),
+#                         node-exporter:9100, tetragon:2112, hubble:9965 (hostNetwork) [CiliumNetworkPolicy]
+#   vmagent            ─► kube-apiserver:6443 (découverte k8s, scrape apiserver, config-reloader) [CNP]
+#   grafana            ─► vmsingle:8428, victoria-logs:9428
+#   grafana            ─► Internet 443 (plugins grafana.com, check_for_updates, api.cloudflare.com,
+#                         contact points éventuels : ntfy.axtazer.me public)
+#   grafana            ─► ntfy:80 (contact point éventuel sur l'URL interne, miroir de ntfy/networkpolicy.yaml)
+#   grafana (sidecars) ─► kube-apiserver:6443 (watch ConfigMaps grafana_dashboard/grafana_datasource) [CNP]
+#   vlagent            ─► victoria-logs:9428 + kube-apiserver:6443 (métadonnées pods)          [CNP]
+#   kube-state-metrics ─► kube-apiserver:6443                                                   [CNP]
+#   vm-operator        ─► kube-apiserver:6443 ; kube-apiserver ─► vm-operator:9443 (webhook)    [CNP]
+#                         (inclut le Job pre-delete cleanup-hook, même label)
+#   blackbox-exporter  ─► Internet 443 (sondes HTTPS des sites publics via Cloudflare) ; vmagent ─► blackbox:9115
+#   tous               ─► DNS (kube-system:53)
+# Hors périmètre : node-exporter (hostNetwork, identité host, non sélectionnable) ; cAdvisor et
+# dcgm-exporter n'ont besoin d'aucun egress (socket Docker / pod-resources du kubelet en fichiers).
+# Les probes kubelet et les kubectl port-forward (depuis l'hôte) ne sont pas concernés : trafic
+# depuis l'hôte, toujours autorisé par Cilium.
+# Les ports sont ceux des conteneurs (targetPort), pas ceux des Services (grafana : Service 80 → 3000).
+#
+# Labels des pods générés par victoria-metrics-operator (absents du dépôt et du rendu Helm, vérifiés
+# le 2026-10-11 avec kubectl -n monitoring get pods --show-labels) :
+#   vmagent  = app.kubernetes.io/name: vmagent  + app.kubernetes.io/instance: victoria-metrics-k8s-stack
+#   vmsingle = app.kubernetes.io/name: vmsingle + app.kubernetes.io/instance: victoria-metrics-k8s-stack
+# Tout le scrape et le remote write en dépendent : revérifier après une montée de version de l'opérateur.
+# Les autres labels (grafana, kube-state-metrics, operator, victoria-logs-single,
+# victoria-logs-collector, dcgm-exporter) sont vérifiés par helm template aux versions du dépôt.
+#
+# Repli en cas de casse : supprimer SEULEMENT monitoring-default-deny-egress ne rouvre RIEN
+# (toute NetworkPolicy de type Egress — dont l'allow DNS en podSelector {} — et toute CNP avec une
+# section egress isolent déjà les pods en sortie). Procédures valables :
+#   - GitOps (préféré) : revert de ce fichier dans une PR ; ArgoCD (prune: true) supprime les policies.
+#   - Urgence : désactiver l'auto-sync de l'app monitoring (selfHeal: true recréerait tout), puis
+#       kubectl -n monitoring delete networkpolicy,ciliumnetworkpolicy --all
+#     (garder monitoring-default-deny-ingress si seul l'egress pose problème).
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n monitoring --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitoring-default-deny-ingress
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitoring-default-deny-egress
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+---
+# Résolution DNS (CoreDNS dans kube-system) pour tous les pods du namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitoring-allow-egress-dns
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# ─── Grafana ────────────────────────────────────────────────────────────────────
+# cloudflared (connecteur géré par cloudflare-tunnel-ingress-controller) -> grafana:3000
+# + vmagent -> grafana:3000 (VMServiceScrape victoria-metrics-k8s-stack-grafana)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana-allow-ingress
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 3000
+          protocol: TCP
+---
+# grafana -> vmsingle:8428 (datasource "prometheus") et victoria-logs:9428 (datasource VictoriaLogs)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana-allow-egress-datasources
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmsingle
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 8428
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: victoria-logs-single
+              app.kubernetes.io/instance: victoria-logs
+      ports:
+        - port: 9428
+          protocol: TCP
+---
+# grafana -> Internet 443 : téléchargement des plugins (grafana.com + CDN), check_for_updates,
+# datasource Infinity vers api.cloudflare.com, contact points d'alerte éventuels (ntfy public).
+# Plages privées exclues pour ne pas réautoriser le reste du cluster/LAN.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana-allow-egress-internet
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+---
+# grafana -> ntfy:80 (contact point d'alerting éventuel sur l'URL interne http://ntfy.ntfy.svc.cluster.local).
+# Miroir de ntfy-allow-ingress-grafana (ntfy/networkpolicy.yaml). Inutile si les contact points
+# visent https://ntfy.axtazer.me (couvert par grafana-allow-egress-internet).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana-allow-egress-ntfy
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ntfy
+          podSelector:
+            matchLabels:
+              app: ntfy
+      ports:
+        - port: 80
+          protocol: TCP
+---
+# ─── vmagent (scraper) ──────────────────────────────────────────────────────────
+# vmagent -> tous les pods du cluster, tout port. Choix volontaire : selectAllByDefault ramasse
+# n'importe quel ServiceMonitor/VMServiceScrape de n'importe quel namespace ; restreindre ici
+# casserait silencieusement chaque nouvelle cible. La restriction se fait côté ingress des
+# cibles (namespaces sous deny-all : leur ajouter une règle depuis vmagent s'ils exposent des
+# métriques). Aucun accès Internet (ipBlock non ouvert).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vmagent-allow-egress-scrape
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vmagent
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+---
+# vmagent -> hôte (kubelet 10250, node-exporter 9100 et tetragon 2112 en hostNetwork) et
+# kube-apiserver 6443. Un ipBlock ne matche pas l'IP du nœud sous Cilium : entités obligatoires.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vmagent-allow-egress-host-apiserver
+  namespace: monitoring
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: vmagent
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  egress:
+    - toEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "10250"
+              protocol: TCP
+            - port: "9100"
+              protocol: TCP
+            - port: "2112"
+              protocol: TCP
+            - port: "9965"
+              protocol: TCP
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
+---
+# vmagent -> vmagent:8429 (auto-scrape créé par l'opérateur) + 8435 (config-reloader, s'il est scrappé)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vmagent-allow-ingress-self
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vmagent
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 8429
+          protocol: TCP
+        - port: 8435
+          protocol: TCP
+---
+# ─── vmsingle (stockage métriques) ──────────────────────────────────────────────
+# vmagent -> vmsingle:8428 (remote write /api/v1/write + scrape) ; grafana -> vmsingle:8428 (requêtes)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vmsingle-allow-ingress
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vmsingle
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 8428
+          protocol: TCP
+---
+# ─── VictoriaLogs + vlagent ─────────────────────────────────────────────────────
+# vlagent -> victoria-logs:9428 (/insert/native) ; grafana -> victoria-logs:9428 (LogsQL) ;
+# vmagent -> victoria-logs:9428 (VMServiceScrape victoria-logs)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: victoria-logs-allow-ingress
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: victoria-logs-single
+      app.kubernetes.io/instance: victoria-logs
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: victoria-logs-collector
+              app.kubernetes.io/instance: victoria-logs
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 9428
+          protocol: TCP
+---
+# vlagent -> victoria-logs:9428
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vlagent-allow-egress-victoria-logs
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: victoria-logs-collector
+      app.kubernetes.io/instance: victoria-logs
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: victoria-logs-single
+              app.kubernetes.io/instance: victoria-logs
+      ports:
+        - port: 9428
+          protocol: TCP
+---
+# ─── Exporters internes au namespace (scrapés par vmagent uniquement) ───────────
+# vmagent -> kube-state-metrics:8080
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kube-state-metrics-allow-ingress-vmagent
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kube-state-metrics
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# vmagent -> cadvisor:8080 (ServiceMonitor cadvisor, conteneurs Docker Pelican)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cadvisor-allow-ingress-vmagent
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: cadvisor
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# vmagent -> dcgm-exporter:9400 (ServiceMonitor dcgm-exporter)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dcgm-exporter-allow-ingress-vmagent
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: dcgm-exporter
+      app.kubernetes.io/instance: dcgm-exporter
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 9400
+          protocol: TCP
+---
+# ─── victoria-metrics-operator ──────────────────────────────────────────────────
+# vmagent -> operator:8080 (métriques). Le webhook 9443 est traité dans la CNP ci-dessous.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vm-operator-allow-ingress-vmagent
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: victoria-metrics-operator
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# ─── Accès à l'API Kubernetes (ServiceAccount token monté) ──────────────────────
+# Une CNP par composant (endpointSelector = labels réels des pods) :
+#   operator (+ Job cleanup-hook) : réconciliation des CR VM*, convertisseur ServiceMonitor ;
+#     ingress webhook 9443 depuis l'API server (déjà permis par Cilium pour l'hôte, explicite ici)
+#   grafana : sidecars k8s-sidecar (watch des ConfigMaps dashboards/datasources)
+#   kube-state-metrics : list/watch de toutes les ressources
+#   vlagent : métadonnées des pods (kubernetesCollector)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vm-operator-allow-apiserver
+  namespace: monitoring
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: victoria-metrics-operator
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
+  ingress:
+    - fromEntities:
+        - kube-apiserver
+        - host
+      toPorts:
+        - ports:
+            - port: "9443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: grafana-allow-egress-apiserver
+  namespace: monitoring
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: kube-state-metrics-allow-egress-apiserver
+  namespace: monitoring
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: kube-state-metrics
+      app.kubernetes.io/instance: victoria-metrics-k8s-stack
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vlagent-allow-egress-apiserver
+  namespace: monitoring
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: victoria-logs-collector
+      app.kubernetes.io/instance: victoria-logs
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
+---
+# vmagent -> blackbox-exporter:9115 (VMProbe blackbox-sites)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: blackbox-allow-ingress-vmagent
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: blackbox-exporter
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 9115
+          protocol: TCP
+---
+# blackbox-exporter -> Internet 443 : sondes des sites publics (Cloudflare), pas de plages privées
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: blackbox-allow-egress-internet
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: blackbox-exporter
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP

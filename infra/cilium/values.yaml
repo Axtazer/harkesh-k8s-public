@@ -1,0 +1,41 @@
+---
+cluster:
+  name: kubernetes
+hostFirewall:
+  devices:
+    - eno1
+  enabled: false
+hubble:
+  enabled: true
+  # Métriques Hubble (port 9965 des agents, hostNetwork) scrapées par vmagent via le ServiceMonitor
+  # (converti en VMServiceScrape). Seulement les paquets refusés, par namespace/workload et raison
+  # (POLICY_DENIED = NetworkPolicy) : dashboard Grafana « Sécurité ». Cardinalité faible.
+  # ⚠️ Activer/désactiver les métriques change le DaemonSet (port 9965) : redémarrage de l'agent
+  # Cilium au sync, coupure réseau de quelques secondes (merger quand aucun joueur n'est connecté).
+  # Changer seulement la liste modifie cilium-config, relu au prochain redémarrage de l'agent
+  # (rollOutCiliumPods: false) : kubectl -n kube-system rollout restart ds/cilium.
+  metrics:
+    enabled:
+      - drop:labelsContext=source_namespace,source_workload,destination_namespace,destination_workload,traffic_direction
+    serviceMonitor:
+      enabled: true
+      interval: 60s
+  relay:
+    enabled: true
+    tls:
+      client:
+        enabled: false
+      enabled: false
+  tls:
+    enabled: false
+  ui:
+    enabled: true
+operator:
+  replicas: 1
+routingMode: tunnel
+tunnelProtocol: vxlan
+gatewayAPI:
+  enabled: true
+kubeProxyReplacement: true
+l2announcements:
+  enabled: true

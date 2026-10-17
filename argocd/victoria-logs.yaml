@@ -1,0 +1,81 @@
+---
+# Logs centralisés : VictoriaLogs (stockage + requêtes LogsQL) + vlagent en DaemonSet
+# (victoria-logs-collector) qui lit /var/log/pods de tous les conteneurs et les envoie à
+# VictoriaLogs. Consultation dans Grafana (datasource monitoring/grafana-datasource-victorialogs.yaml).
+#
+# Le collecteur suit aussi /var/log/kubernetes/audit/*.log (logs d'audit de l'API server,
+# champ source=k8s-audit) — fichier créé par la procédure « Chiffrement etcd + audit de l'API server » du README.
+#
+# Ressources volontairement serrées (le nœud sert aussi de serveur de jeux) : rétention 14 j
+# plafonnée à 8 GiB sur le PVC, limites CPU/mémoire basses sur les deux composants.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: victoria-logs
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - chart: victoria-logs-single
+      repoURL: https://victoriametrics.github.io/helm-charts
+      targetRevision: 0.13.10
+      helm:
+        values: |
+          server:
+            fullnameOverride: victoria-logs
+            retentionPeriod: 14d
+            retentionDiskSpaceUsage: 8
+            persistentVolume:
+              enabled: true
+              storageClassName: local-path
+              size: 10Gi
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            vmServiceScrape:
+              enabled: true
+            # Le chart pose déjà runAsNonRoot + drop ALL ; seul le profil seccomp manque
+            podSecurityContext:
+              seccompProfile:
+                type: RuntimeDefault
+    - chart: victoria-logs-collector
+      repoURL: https://victoriametrics.github.io/helm-charts
+      targetRevision: 0.3.8
+      helm:
+        values: |
+          remoteWrite:
+            - url: http://victoria-logs.monitoring.svc.cluster.local:9428
+          fileCollector:
+            - glob: /var/log/kubernetes/audit/*.log
+              extraFields: '{"source":"k8s-audit"}'
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          # Reste root (fichiers de /var/log/pods et de l'audit en root:root 0640/0600, lus en
+          # tant que propriétaire) mais sans aucune capability ni élévation de privilèges
+          podSecurityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

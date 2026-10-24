@@ -1,0 +1,91 @@
+---
+# Secrets propres à l'environnement de dev (dev-pro.mydomain.fr, public) : il ne partage plus
+# flo-pro-env avec la prod — une fuite ou un bug côté dev n'expose pas les identifiants de prod.
+# À créer dans 1Password AVANT de merger (sinon le pod reste en CreateContainerConfigError) :
+#   Vault : k8s-home   Item : dev-flo-pro-env   Champs : mêmes noms que l'item flo-pro-env,
+#   valeurs de dev (base, clés API de test…).
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: dev-flo-pro-env
+  namespace: flo-pro
+spec:
+  itemPath: "vaults/k8s-home/items/dev-flo-pro-env"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-flo-pro
+  namespace: flo-pro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: dev-flo-pro
+  template:
+    metadata:
+      labels:
+        app: dev-flo-pro
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: dev-flo-pro
+          image: ghcr.io/axtazer/flo-pro:dev@sha256:82b9d7144a791e1aa105acd65f1c3a328755de83a103ceb1c5e81b1192c3e5df
+          # L'image (node:20-alpine, Next.js standalone) n'a pas de USER : on la lance en node (1000).
+          # /app est en lecture seule pour lui (fichiers root, lisibles) ; seul le cache
+          # d'optimisation d'images (.next/cache) doit être inscriptible → emptyDir.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: next-cache
+              mountPath: /app/.next/cache
+          ports:
+            - containerPort: 3000
+          env:
+            - name: TZ
+              value: Europe/Paris
+          envFrom:
+            - secretRef:
+                name: dev-flo-pro-env
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          # Mesuré au repos (kubectl top) : ~35Mi / 1-2m CPU. Limits larges, à resserrer si besoin.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: next-cache
+          emptyDir:
+            sizeLimit: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dev-flo-pro
+  namespace: flo-pro
+spec:
+  selector:
+    app: dev-flo-pro
+  ports:
+    - port: 81
+      targetPort: 3000

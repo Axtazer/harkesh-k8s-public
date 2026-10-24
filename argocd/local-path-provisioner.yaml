@@ -1,0 +1,29 @@
+---
+# StorageClass local-path (PVC n8n, Pelican, vmsingle). Manifests upstream appliqués tels quels
+# via la kustomization du dépôt rancher/local-path-provisioner (deploy/kustomization.yaml).
+#
+# Adoption sans changement : la v0.0.34 upstream est identique à l'installation manuelle qu'elle
+# reprend (image rancher/local-path-provisioner:v0.0.34, StorageClass local-path en
+# WaitForFirstConsumer/Delete, config.json par défaut → /opt/local-path-provisioner).
+# Modifier le chemin de stockage = patch kustomize ici, plus jamais de kubectl apply à la main.
+#
+# Ce n'est volontairement pas la StorageClass par défaut du cluster : les PV/PVC hostPath
+# utilisent storageClassName: "" et ne doivent dépendre d'aucune StorageClass par défaut.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: local-path-provisioner
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rancher/local-path-provisioner
+    targetRevision: v0.0.37
+    path: deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: local-path-storage
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

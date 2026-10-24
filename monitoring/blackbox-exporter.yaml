@@ -1,0 +1,126 @@
+---
+# blackbox-exporter : sondes HTTPS des sites publics depuis l'intérieur du cluster, en passant par
+# Internet -> Cloudflare -> tunnel -> Service (chemin réel des visiteurs). Alimente les alertes
+# « Site public injoignable » (tunnel / app KO) et « Certificat bientôt expiré »
+# (monitoring/grafana-alerting.yaml). Cibles : VMProbe en bas de fichier, scrapé par vmagent (60 s).
+# Uniquement des URL NON protégées par Cloudflare Access : derrière Access, la page de login
+# Cloudflare répond 200 même si le tunnel est coupé.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blackbox-exporter
+  namespace: monitoring
+data:
+  config.yml: |
+    modules:
+      http_2xx:
+        prober: http
+        timeout: 10s
+        http:
+          preferred_ip_protocol: ip4
+          ip_protocol_fallback: false
+          valid_status_codes: []   # 2xx
+          follow_redirects: true
+          fail_if_not_ssl: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blackbox-exporter
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: blackbox-exporter
+  template:
+    metadata:
+      labels:
+        app: blackbox-exporter
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # L'image (busybox) ne définit pas de USER : nobody imposé ici
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: blackbox-exporter
+          image: quay.io/prometheus/blackbox-exporter:v0.29.1@sha256:ea1c7aa3ef3f307cd03e85f34abb604478ccb90b567fc690da0cd9776da76b13
+          args:
+            - --config.file=/etc/blackbox_exporter/config.yml
+          ports:
+            - containerPort: 9115
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/blackbox_exporter
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: blackbox-exporter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blackbox-exporter
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+spec:
+  selector:
+    app: blackbox-exporter
+  ports:
+    - port: 9115
+      targetPort: http
+      name: http
+---
+# Sites publics sondés (hors Cloudflare Access). Plusieurs KO en même temps = tunnel ; un seul = l'app.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMProbe
+metadata:
+  name: blackbox-sites
+  namespace: monitoring
+spec:
+  jobName: blackbox-sites
+  module: http_2xx
+  interval: 60s
+  scrapeTimeout: 15s
+  vmProberSpec:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      targets:
+        - https://mydomain2.fr
+        - https://mydomain.fr
+        - https://auth.mydomain2.fr/-/health/live/
+        - https://ntfy.mydomain2.fr/v1/health
+        - https://nas.mydomain.fr/status.php

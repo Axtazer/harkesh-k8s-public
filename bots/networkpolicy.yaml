@@ -1,0 +1,130 @@
+---
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace bots.
+# Les règles ci-dessous ré-ouvrent uniquement les flux connus :
+#   cloudflared ─► axtazia:3000   (axtazia.mydomain2.fr : /webhook/twitch = Twitch EventSub — cf. routes.yaml ;
+#                                  les monitors externes de monitoring/ENDPOINTS.md passent aussi par là)
+#   axtazia     ─► Internet 443   (API REST Discord + gateway WebSocket wss://gateway.discord.gg,
+#                                  widget de profil, API Helix / OAuth Twitch api.twitch.tv + id.twitch.tv,
+#                                  chat Twitch en WebSocket 443)
+#   axtazia     ─► monitoring/vmsingle:8428 (requête node_boot_time_seconds pour le widget de profil ;
+#                                  ingress miroir dans monitoring/networkpolicy.yaml)
+#   tous        ─► DNS (kube-system:53)
+# Non concernés (pas de règle nécessaire) :
+#   - probe kubelet (liveness GET /healthz:3000) : trafic hôte, toujours autorisé par Cilium ;
+#   - pull de l'image GHCR (fait par containerd sur l'hôte, pas par le pod) ;
+#   - API Kubernetes : automountServiceAccountToken: false → pas de CiliumNetworkPolicy kube-apiserver ;
+#   - supervision : aucun ServiceMonitor/VMServiceScrape dans bots, logs lus par vlagent sur l'hôte.
+# Hypothèse (config dans le secret axtazia-secrets, non lisible depuis le dépôt) : pas de base de
+# données/cache externe (Postgres, MongoDB, Redis...), état non persistant (aucun volume dans le
+# Deployment). Si l'item 1Password axtazia-bot contient une URL vers un autre port, l'ajouter ici.
+# Pas de port 80 : Discord et Twitch sont 100 % HTTPS/WSS. Si le bot passe un jour en vocal Discord
+# (UDP vers les serveurs voix) ou en IRC Twitch brut (6697/TCP), ajouter les ports ici.
+# Le namespace porte shared-gateway-access: "true" mais aucune HTTPRoute n'existe : si un accès de
+# secours via le Gateway Cilium est ajouté, il faudra une CiliumNetworkPolicy fromEntities: [ingress].
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n bots --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bots-default-deny
+  namespace: bots
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Résolution DNS (CoreDNS dans kube-system) pour tous les pods du namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bots-allow-egress-dns
+  namespace: bots
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# connecteur cloudflared (géré par cloudflare-tunnel-ingress-controller) -> axtazia:3000
+# (port du conteneur "webhook" ; le Service axtazia-bot expose le même numéro)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: axtazia-allow-ingress-cloudflared
+  namespace: bots
+spec:
+  podSelector:
+    matchLabels:
+      app: axtazia
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 3000
+          protocol: TCP
+---
+# axtazia -> Internet 443 (APIs + gateway WebSocket Discord, APIs Twitch), exclut les plages
+# privées pour ne pas réautoriser l'accès aux autres namespaces/services du cluster ni au LAN.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: axtazia-allow-egress-internet
+  namespace: bots
+spec:
+  podSelector:
+    matchLabels:
+      app: axtazia
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+---
+# axtazia -> vmsingle:8428 (API Prometheus, uptime du nœud pour le widget de profil Discord)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: axtazia-allow-egress-vmsingle
+  namespace: bots
+spec:
+  podSelector:
+    matchLabels:
+      app: axtazia
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmsingle
+              app.kubernetes.io/instance: victoria-metrics-k8s-stack
+      ports:
+        - port: 8428
+          protocol: TCP

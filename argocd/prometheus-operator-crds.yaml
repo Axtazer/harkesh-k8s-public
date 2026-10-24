@@ -1,0 +1,37 @@
+---
+# CRDs prometheus-operator (ServiceMonitor, PodMonitor, PrometheusRule…) : le stack VictoriaMetrics ne
+# les installe pas (« doivent être préinstallées », values du chart) mais son operator convertit les
+# ServiceMonitor existants (hubble, tetragon, cadvisor, dcgm-exporter) en VMServiceScrape.
+# Les CRDs en place ont été posées en février 2026 par l'ancien kube-prometheus-stack : cette
+# Application les reprend en gestion (pas de recréation, ServerSideApply car trop volumineuses pour
+# l'annotation last-applied). Sans elle, une réinstallation échouerait au sync de monitoring/ et
+# de dcgm-exporter (kind inconnu).
+# Delete=false sur les CRDs : supprimer cette Application ne doit jamais supprimer les CRDs, ce qui
+# effacerait tous les ServiceMonitor du cluster.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-operator-crds
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    chart: prometheus-operator-crds
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 32.0.1
+    helm:
+      values: |
+        crds:
+          annotations:
+            argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

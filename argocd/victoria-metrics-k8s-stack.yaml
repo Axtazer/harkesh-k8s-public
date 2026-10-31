@@ -1,0 +1,184 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: victoria-metrics-k8s-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    - chart: victoria-metrics-k8s-stack
+      repoURL: https://victoriametrics.github.io/helm-charts
+      targetRevision: 0.97.0
+      helm:
+        values: |
+          vmsingle:
+            enabled: true
+            spec:
+              retentionPeriod: "30d"
+              storage:
+                storageClassName: local-path
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 20Gi
+              # Durcissement sans changer d'utilisateur (données root sur le PVC local-path) :
+              # seccomp + no-new-privs + aucune capability (appliqué aussi au config-reloader)
+              securityContext:
+                seccompProfile:
+                  type: RuntimeDefault
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+          vmagent:
+            enabled: true
+            spec:
+              scrapeInterval: 60s
+              selectAllByDefault: true
+              extraArgs:
+                promscrape.maxScrapeSize: "64MiB"
+              # Durcissement sans changer d'utilisateur (données root sur le PVC local-path) :
+              # seccomp + no-new-privs + aucune capability (appliqué aussi au config-reloader)
+              securityContext:
+                seccompProfile:
+                  type: RuntimeDefault
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+          victoria-metrics-operator:
+            enabled: true
+            operator:
+              disable_prometheus_converter: false
+          # Datasource par defaut (VictoriaMetrics, API compatible Prometheus) nommee/uid "prometheus"
+          # pour matcher les references de datasource par nom "prometheus" codees en dur dans les
+          # dashboards importes (cf. monitoring/grafana-dashboards-*.yaml, generes par monitoring/dashboards/generate.py).
+          defaultDatasources:
+            victoriametrics:
+              datasources:
+                - name: prometheus
+                  type: prometheus
+                  access: proxy
+                  uid: prometheus
+                  isDefault: true
+                  # = scrapeInterval de vmagent : $__rate_interval >= 4 x 60s
+                  jsonData:
+                    timeInterval: 60s
+          # Sync-job desactive : il telechargeait a chaque sync des dashboards et VMRules depuis les
+          # branches master/main de GitHub (non epingles, hors Git). Les dashboards sont dans le depot
+          # (monitoring/grafana-dashboards-*.yaml, generes par monitoring/dashboards/generate.py) ; les
+          # VMRules (recording/alerting) ne servaient a rien sans vmalert (alerting prevu dans Grafana).
+          syncJob:
+            enabled: false
+          defaultDashboards:
+            enabled: false
+          defaultRules:
+            enabled: false
+          grafana:
+            enabled: true
+            # Dossiers Grafana : annotation grafana_folder sur chaque ConfigMap de dashboard
+            sidecar:
+              dashboards:
+                folderAnnotation: grafana_folder
+                provider:
+                  foldersFromFilesStructure: true
+              # Alerting provisionné : ConfigMaps grafana_alert (monitoring/grafana-alerting.yaml)
+              alerts:
+                enabled: true
+                label: grafana_alert
+                labelValue: "1"
+            admin:
+              existingSecret: grafana-admin
+              userKey: username
+              passwordKey: password
+            plugins:
+              - yesoreyeram-infinity-datasource
+              - victoriametrics-logs-datasource  # VictoriaLogs (argocd/victoria-logs.yaml)
+            envValueFrom:
+              CLOUDFLARE_API_TOKEN:
+                secretKeyRef:
+                  name: cloudflare-analytics-token
+                  key: token
+              # Contact points ntfy (monitoring/grafana-alerting.yaml). optional : Grafana démarre même
+              # si le Secret manque (les notifications échouent alors en 401/403, visible dans les logs).
+              NTFY_TOKEN:
+                secretKeyRef:
+                  name: grafana-ntfy-token
+                  key: token
+                  optional: true
+            grafana.ini:
+              analytics:
+                check_for_updates: true
+              log:
+                mode: console
+              date_formats:
+                default_timezone: Europe/Paris
+              paths:
+                data: /var/lib/grafana/
+                logs: /var/log/grafana
+                plugins: /var/lib/grafana/plugins
+                provisioning: /etc/grafana/provisioning
+              server:
+                domain: grafana.mydomain.fr
+                root_url: https://grafana.mydomain.fr
+                serve_from_sub_path: false
+              unified_storage:
+                index_path: /var/lib/grafana-search/bleve
+          alertmanager:
+            enabled: false
+          kube-state-metrics:
+            enabled: true
+          prometheus-node-exporter:
+            enabled: true
+            # Les deux premiers arguments reprennent les défauts du chart (extraArgs remplace la liste).
+            # textfile : métriques écrites par les scripts de l'hôte (sauvegardes restic, cf.
+            # infra/host/backup/harkesh-backup.sh), lues via la racine de l'hôte déjà montée en lecture
+            # seule sur /host/root (fichiers *.prom lisibles par nobody).
+            extraArgs:
+              - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+              - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tracefs)$
+              - --collector.textfile.directory=/host/root/var/lib/node_exporter/textfile
+          vmalert:
+            enabled: false
+          # kubeApiServer reste actif (aligne sur kube-prometheus-stack) ; kubelet/coreDns
+          # gardent aussi les defauts du chart (actifs).
+          # kubeControllerManager/kubeScheduler/kubeEtcd desactives : composants kubeadm
+          # bindes sur 127.0.0.1 sur ce cluster, targets injoignables/down en permanence.
+          # kubeProxy desactive : remplace par Cilium (kubeProxyReplacement: true). Le DaemonSet
+          # kube-proxy pose par kubeadm init est un reste a supprimer (procedure dans _docs/reinstallation.md,
+          # section Cilium) -- ses metriques n'ont aucun interet.
+          kubeApiServer:
+            enabled: true
+            vmScrape:
+              spec:
+                endpoints:
+                  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+                    port: https
+                    scheme: https
+                    tlsConfig:
+                      caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                      serverName: kubernetes
+                    metricRelabelConfigs:
+                      - action: drop
+                        source_labels: [__name__]
+                        regex: apiserver_(request_body_size|request_duration_seconds|request_sli_duration_seconds|response_sizes|watch_list_duration_seconds|watch_cache_read_wait_seconds)_bucket
+          kubeControllerManager:
+            enabled: false
+          kubeScheduler:
+            enabled: false
+          kubeEtcd:
+            enabled: false
+          kubeProxy:
+            enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

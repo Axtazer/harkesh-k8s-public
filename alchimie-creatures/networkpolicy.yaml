@@ -1,0 +1,47 @@
+# NetworkPolicies du namespace alchimie-creatures (jeu statique https://alchimie.mydomain2.fr).
+#
+# Flux autorisés :
+#   Ingress
+#     - connecteur cloudflared (ns cloudflare-tunnel-ingress-controller,
+#       app: controlled-cloudflared-connector) -> alchimie-creatures:8080
+#     - probes kubelet : toujours autorisées par Cilium (identité host).
+#   Egress
+#     - aucun : nginx sert des fichiers statiques (pas de DNS, pas d'Internet).
+#
+# Accès de secours : kubectl port-forward (non affecté). Un HTTPRoute sur le shared-gateway
+# serait bloqué (cf. axtazer-me/networkpolicy.yaml pour la CiliumNetworkPolicy à ajouter).
+#
+# Vérification : kubectl exec -n kube-system ds/cilium -- hubble observe -n alchimie-creatures --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alchimie-creatures-default-deny
+  namespace: alchimie-creatures
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alchimie-creatures-allow-ingress-cloudflared
+  namespace: alchimie-creatures
+spec:
+  podSelector:
+    matchLabels:
+      app: alchimie-creatures
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 8080
+          protocol: TCP

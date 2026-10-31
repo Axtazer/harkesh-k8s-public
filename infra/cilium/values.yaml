@@ -1,0 +1,52 @@
+---
+cluster:
+  name: kubernetes
+hostFirewall:
+  devices:
+    - eno1
+  enabled: false
+hubble:
+  enabled: true
+  # Métriques Hubble (port 9965 des agents, hostNetwork) scrapées par vmagent via le ServiceMonitor
+  # (converti en VMServiceScrape). Seulement les paquets refusés, par namespace/workload et raison
+  # (POLICY_DENIED = NetworkPolicy) : dashboard Grafana « Sécurité ». Cardinalité faible.
+  # ⚠️ Activer/désactiver les métriques change le DaemonSet (port 9965) : redémarrage de l'agent
+  # Cilium au sync, coupure réseau de quelques secondes (merger quand aucun joueur n'est connecté).
+  # Changer seulement la liste modifie cilium-config, relu au prochain redémarrage de l'agent
+  # (rollOutCiliumPods: false) : kubectl -n kube-system rollout restart ds/cilium.
+  metrics:
+    enabled:
+      - drop:labelsContext=source_namespace,source_workload,destination_namespace,destination_workload,traffic_direction
+    serviceMonitor:
+      enabled: true
+      interval: 60s
+  relay:
+    enabled: true
+    tls:
+      client:
+        enabled: false
+      enabled: false
+  tls:
+    enabled: false
+  ui:
+    enabled: true
+operator:
+  replicas: 1
+routingMode: tunnel
+tunnelProtocol: vxlan
+gatewayAPI:
+  enabled: true
+kubeProxyReplacement: true
+# Sans kube-proxy, l'agent ne peut pas joindre l'API via la ClusterIP 10.96.0.1 au démarrage
+# (rien ne la traduit tant que Cilium n'a pas chargé ses programmes BPF) : adresse directe de
+# l'apiserver obligatoire. Même IP que cluster-info (kube-public) et que le certificat de
+# l'apiserver. Valeur déjà posée en live par un `helm upgrade` manuel (2026-09-08), désormais
+# déclarée ici : le sync ne change rien tant que le cluster la porte déjà.
+k8sServiceHost: 192.168.1.200
+k8sServicePort: 6443
+# Pas d'annonce L2 (aucune CiliumL2AnnouncementPolicy, cf. lb-pool.yaml) : la fonctionnalité ne
+# servait qu'à maintenir des leases inutiles. À réactiver avec la policy pour l'accès de secours LAN
+# (_docs/architecture.md). Changement de cilium-config seulement : pris en compte au prochain
+# redémarrage de l'agent, pas de rollout au sync.
+l2announcements:
+  enabled: false

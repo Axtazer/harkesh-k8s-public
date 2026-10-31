@@ -1,0 +1,225 @@
+---
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace nextcloud.
+# Les règles ci-dessous ré-ouvrent uniquement les flux connus :
+#   cloudflared       ─► nextcloud:80 (nas.mydomain.fr, cf. routes.yaml)
+#   nextcloud, cron   ─► mariadb:3306 (MYSQL_HOST / dbhost de config.php)
+#   nextcloud, cron   ─► redis:6379 (REDIS_HOST). Côté cron, la règle est préventive : le CronJob
+#                        n'a pas REDIS_HOST aujourd'hui, donc redis.config.php de l'image (getenv)
+#                        n'active pas Redis pour cron.php
+#   nextcloud, cron   ─► Internet (hors RFC1918), mêmes 4 ports pour les deux :
+#                        80/443 (app store, updater, push proxy, OIDC via auth.mydomain2.fr public,
+#                        fédération, abonnements webcal, aperçus de liens, test de connectivité)
+#                        465/587 (SMTP : reset de mot de passe, notifications, partage par mail)
+#   mariadb, redis    ─► rien (hors DNS)
+#   tous              ─► DNS (kube-system:53)
+# Non ouverts (à ajouter si `occ app:list` / `occ files_external:list` / config.php le montrent) :
+#   SMTP port 25 ou non standard, relais mail sur le LAN ou sur l'hôte (toEntities: [host]),
+#   Talk STUN/TURN 3478, stockage externe SMB/NFS/SFTP (445/2049/22, LAN exclu par l'except),
+#   IMAP 993 (app Mail), LDAP 389/636, fédération/webcal sur ports non standard.
+# Le pod du CronJob nextcloud-cron n'a aucun label dans son template : il est sélectionné par le label
+# batch.kubernetes.io/job-name, posé automatiquement par le Job controller sur tout pod de Job
+# (seul Job du namespace aujourd'hui ; tout futur Job du namespace héritera de ces droits). Ne PAS
+# lui donner le label app: nextcloud (le Service nextcloud lui enverrait du trafic).
+# Les probes kubelet ne sont pas concernées (trafic depuis l'hôte, toujours autorisé par Cilium).
+# Accès de secours : `kubectl port-forward` n'est pas filtré (connexion locale dans le netns du pod) ;
+# une HTTPRoute vers le shared-gateway demanderait en plus une CiliumNetworkPolicy
+# fromEntities: [ingress] (Envoy Cilium), non ouverte ici.
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n nextcloud --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nextcloud-default-deny
+  namespace: nextcloud
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Résolution DNS (CoreDNS dans kube-system) pour tous les pods du namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nextcloud-allow-egress-dns
+  namespace: nextcloud
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# cloudflared (connecteur géré par cloudflare-tunnel-ingress-controller) -> nextcloud:80 (Apache)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nextcloud-allow-ingress-cloudflared
+  namespace: nextcloud
+spec:
+  podSelector:
+    matchLabels:
+      app: nextcloud
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 80
+          protocol: TCP
+---
+# nextcloud -> mariadb + redis + Internet. Les plages privées restent bloquées (pas d'accès
+# aux autres namespaces ni au LAN, anti-SSRF pour les aperçus de liens / webcal / fédération).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nextcloud-allow-egress
+  namespace: nextcloud
+spec:
+  podSelector:
+    matchLabels:
+      app: nextcloud
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: mariadb
+      ports:
+        - port: 3306
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - port: 6379
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP
+        - port: 587
+          protocol: TCP
+        - port: 465
+          protocol: TCP
+---
+# CronJob nextcloud-cron (cron.php toutes les 5 min) : mêmes besoins que nextcloud côté sortie
+# (jobs de fond : envoi des mails de notification, vérification des mises à jour d'apps,
+# synchro des partages fédérés, rafraîchissement des abonnements calendrier). Aucun ingress.
+# redis:6379 ouvert par cohérence (REDIS_HOST absent du CronJob aujourd'hui).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nextcloud-cron-allow-egress
+  namespace: nextcloud
+spec:
+  podSelector:
+    matchExpressions:
+      - key: batch.kubernetes.io/job-name
+        operator: Exists
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: mariadb
+      ports:
+        - port: 3306
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - port: 6379
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP
+        - port: 587
+          protocol: TCP
+        - port: 465
+          protocol: TCP
+---
+# mariadb accepte les connexions depuis nextcloud et le CronJob (miroir des règles ci-dessus)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mariadb-allow-ingress-nextcloud
+  namespace: nextcloud
+spec:
+  podSelector:
+    matchLabels:
+      app: mariadb
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: nextcloud
+        - podSelector:
+            matchExpressions:
+              - key: batch.kubernetes.io/job-name
+                operator: Exists
+      ports:
+        - port: 3306
+          protocol: TCP
+---
+# redis accepte les connexions depuis nextcloud et le CronJob (miroir des règles ci-dessus)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-allow-ingress-nextcloud
+  namespace: nextcloud
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: nextcloud
+        - podSelector:
+            matchExpressions:
+              - key: batch.kubernetes.io/job-name
+                operator: Exists
+      ports:
+        - port: 6379
+          protocol: TCP

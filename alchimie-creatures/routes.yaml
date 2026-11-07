@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alchimie-creatures-tunnel
+  namespace: alchimie-creatures
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: alchimie.mydomain2.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: alchimie-creatures
+                port:
+                  number: 80

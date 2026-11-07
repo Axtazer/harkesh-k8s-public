@@ -1,0 +1,154 @@
+---
+# Démarrage / arrêt automatique des 3 bureaux Kali (cf. _docs/apps/kali.md) :
+#   démarrage 08:00 lundi, mardi, mercredi (le mercredi seulement les semaines ISO impaires)
+#   arrêt     17:00 lundi, mardi, mercredi
+# Heures Europe/Paris (spec.timeZone). Un cron ne sait pas exprimer la parité de semaine : le
+# CronJob de démarrage tourne tous les mercredis et saute lui-même les semaines paires.
+# Mécanisme = `spec.runStrategy` des VirtualMachine (Always / Halted : arrêt propre ACPI). Ce champ est
+# ignoré par ArgoCD (ignoreDifferences dans applicationset.yaml), sinon selfHeal le remettrait.
+# Exception assumée à « automountServiceAccountToken: false » : ces pods appellent l'API K8s,
+# avec un Role limité aux 3 VirtualMachine kali-N (get/patch).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kali-scheduler
+  namespace: kali
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kali-scheduler
+  namespace: kali
+rules:
+  - apiGroups: ["kubevirt.io"]
+    resources: ["virtualmachines"]
+    resourceNames: ["kali-1", "kali-2", "kali-3"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kali-scheduler
+  namespace: kali
+subjects:
+  - kind: ServiceAccount
+    name: kali-scheduler
+    namespace: kali
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kali-scheduler
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kali-start
+  namespace: kali
+spec:
+  schedule: "0 8 * * 1-3"
+  timeZone: Europe/Paris
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: kali-scheduler
+        spec:
+          serviceAccountName: kali-scheduler
+          automountServiceAccountToken: true
+          restartPolicy: Never
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+          containers:
+            - name: scale
+              image: alpine/k8s:1.37.2@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                - name: HOME
+                  value: /tmp
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  # mercredi (%u = 3) : démarrage uniquement les semaines ISO impaires
+                  week=$(date +%V); week=${week#0}
+                  if [ "$(date +%u)" = 3 ] && [ $((week % 2)) -eq 0 ]; then
+                    echo "mercredi, semaine ISO $week paire : pas de démarrage"; exit 0
+                  fi
+                  for n in 1 2 3; do
+                    kubectl -n kali patch virtualmachine "kali-$n" --type merge -p '{"spec":{"runStrategy":"Always"}}'
+                  done
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kali-stop
+  namespace: kali
+spec:
+  schedule: "0 17 * * 1-3"
+  timeZone: Europe/Paris
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: kali-scheduler
+        spec:
+          serviceAccountName: kali-scheduler
+          automountServiceAccountToken: true
+          restartPolicy: Never
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+          containers:
+            - name: scale
+              image: alpine/k8s:1.37.2@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                - name: HOME
+                  value: /tmp
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  for n in 1 2 3; do
+                    kubectl -n kali patch virtualmachine "kali-$n" --type merge -p '{"spec":{"runStrategy":"Halted"}}'
+                  done
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi

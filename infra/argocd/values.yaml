@@ -1,0 +1,19 @@
+---
+# Values du chart Helm argo-cd (https://argoproj.github.io/argo-helm), appliquées par
+# argocd/argocd.yaml (ArgoCD auto-géré). Le bootstrap `helm install` de _docs/reinstallation.md utilise ce
+# même fichier pour que la release initiale et l'Application rendent exactement la même chose.
+# Hors du dossier argocd/ : root le lirait comme un manifest K8s (même modèle que infra/cilium/values.yaml).
+configs:
+  params:
+    # TLS terminé par Cloudflare : l'Ingress cloudflare-tunnel tape argocd-server:80 en HTTP.
+    # Sans ça, argocd-server redirige vers HTTPS -> boucle de redirection derrière le tunnel.
+    server.insecure: true
+
+# Pas de SSO (connexion admin locale, ArgoCD derrière Cloudflare Access) ni de notifications
+# configurées : dex et le controller de notifications tournaient pour rien.
+# argocd/argocd.yaml est en prune: false : leurs ressources déjà déployées ne sont pas supprimées
+# par le sync, nettoyage manuel unique (commande dans _docs/reinstallation.md, section « Nettoyage après désactivation… »).
+dex:
+  enabled: false
+notifications:
+  enabled: false

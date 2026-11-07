@@ -1,0 +1,21 @@
+---
+# Datasource Grafana pour VictoriaLogs (argocd/victoria-logs.yaml). Plugin
+# victoriametrics-logs-datasource installé via grafana.plugins dans
+# argocd/victoria-metrics-k8s-stack.yaml ; ConfigMap chargée par le sidecar (label grafana_datasource).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-victorialogs
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+data:
+  victorialogs.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: VictoriaLogs
+        uid: victorialogs
+        type: victoriametrics-logs-datasource
+        access: proxy
+        url: http://victoria-logs.monitoring.svc.cluster.local:9428
+        isDefault: false

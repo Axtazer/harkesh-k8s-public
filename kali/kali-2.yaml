@@ -1,0 +1,203 @@
+---
+# VM Kali n°2 : disque racine = fichier disk.img (raw, 40 Go sparse) sur un PVC local-path (SSD),
+# préparé une seule fois par le Job kali-2-disk-init (image cloud Kali officielle). Le fichier de
+# 40 Go est le plafond de stockage de la VM (vrai quota, contrairement à un hostPath).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kali-2-disk
+  namespace: kali
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 50Gi
+---
+# Télécharge l'image cloud Kali (miroir kali.download), vérifie le SHA256 (SHA256SUMS du même
+# miroir : intégrité du transfert, pas d'authenticité), extrait disk.raw -> disk.img (fichier creux) et
+# l'agrandit à 40 Go. Python et non busybox tar : l'archive contient un fichier creux GNU (typeflag S). Ne fait rien si disk.img existe déjà (rejouable sans risque). Uid 107 = qemu (virt-launcher).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kali-2-disk-init
+  namespace: kali
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true,Replace=true
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 3600
+  template:
+    metadata:
+      labels:
+        app: kali-disk-init
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        runAsNonRoot: true
+        runAsUser: 107
+        runAsGroup: 107
+        fsGroup: 107
+      containers:
+        - name: init
+          image: python:3.13.13-alpine@sha256:420cd0bf0f3998275875e02ecd5808168cf0843cbb4d3c536432f729247b2acc
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: KALI_IMAGE_BASE
+              value: https://kali.download/cloud-images/current
+          command: ["python3", "-I", "-c"]
+          args:
+            - |
+              import hashlib, os, re, sys, tarfile, urllib.request
+
+              BASE = os.environ["KALI_IMAGE_BASE"]
+              DISK_SIZE = 40 * 1024**3
+              os.chdir(os.environ.get("DISK_DIR", "/disk"))
+
+              if os.path.exists("disk.img"):
+                  print("disk.img déjà présent : rien à faire")
+                  sys.exit(0)
+
+              sums = urllib.request.urlopen(BASE + "/SHA256SUMS", timeout=60).read().decode()
+              m = re.search(r"^([0-9a-f]{64})\s+(\S+cloud-genericcloud-amd64\.tar\.xz)$", sums, re.M)
+              if not m:
+                  sys.exit("image genericcloud introuvable dans SHA256SUMS")
+              want, name = m.groups()
+              print("image :", name, flush=True)
+
+              h = hashlib.sha256()
+              with urllib.request.urlopen(BASE + "/" + name, timeout=120) as r, open(name, "wb") as f:
+                  while True:
+                      chunk = r.read(1 << 20)
+                      if not chunk:
+                          break
+                      f.write(chunk)
+                      h.update(chunk)
+              if h.hexdigest() != want:
+                  sys.exit("SHA256 invalide : " + h.hexdigest())
+              print("SHA256 ok", flush=True)
+
+              # tarfile (et non busybox tar) : l'archive contient disk.raw en fichier creux GNU (typeflag S)
+              found = False
+              with tarfile.open(name, "r|xz") as t:
+                  for member in t:
+                      if not member.name.endswith("disk.raw"):
+                          continue
+                      src = t.extractfile(member)
+                      zero = bytes(1 << 20)
+                      with open("disk.img.tmp", "wb") as out:
+                          while True:
+                              chunk = src.read(1 << 20)
+                              if not chunk:
+                                  break
+                              if chunk == zero[: len(chunk)]:
+                                  out.seek(len(chunk), 1)  # trou : le fichier reste creux
+                              else:
+                                  out.write(chunk)
+                          out.truncate(DISK_SIZE)
+                      found = True
+                      break
+              if not found:
+                  sys.exit("disk.raw absent de l'archive")
+              os.rename("disk.img.tmp", "disk.img")
+              os.remove(name)
+              print("disk.img prêt :", os.stat("disk.img").st_size, "octets (apparents)", flush=True)
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: disk
+              mountPath: /disk
+      volumes:
+        - name: disk
+          persistentVolumeClaim:
+            claimName: kali-2-disk
+---
+# runStrategy: Halted au départ ET ignoré par ArgoCD (applicationset.yaml) : c'est le planning
+# (scheduler.yaml) ou un démarrage manuel qui le pilote. Premier démarrage manuel, une fois le Job
+# disk-init terminé : kubectl -n kali patch vm kali-2 --type merge -p '{"spec":{"runStrategy":"Always"}}'
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: kali-2
+  namespace: kali
+  labels:
+    app: kali
+    instance: kali-2
+spec:
+  runStrategy: Halted
+  template:
+    metadata:
+      labels:
+        app: kali
+        instance: kali-2
+    spec:
+      terminationGracePeriodSeconds: 120
+      domain:
+        cpu:
+          cores: 4
+          model: host-passthrough
+        memory:
+          guest: 6Gi
+        resources:
+          requests:
+            cpu: "2"
+            memory: 4Gi
+        devices:
+          rng: {}
+          disks:
+            - name: rootdisk
+              bootOrder: 1
+              disk:
+                bus: virtio
+            - name: cloudinit
+              disk:
+                bus: virtio
+            - name: creds
+              serial: CREDS
+              disk:
+                bus: virtio
+          interfaces:
+            - name: default
+              masquerade: {}
+      networks:
+        - name: default
+          pod: {}
+      volumes:
+        - name: rootdisk
+          persistentVolumeClaim:
+            claimName: kali-2-disk
+        - name: cloudinit
+          cloudInitNoCloud:
+            secretRef:
+              name: kali-cloudinit
+            networkDataSecretRef:
+              name: kali-cloudinit
+        - name: creds
+          secret:
+            secretName: kali-credentials
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kali-2
+  namespace: kali
+spec:
+  selector:
+    instance: kali-2
+  ports:
+    - name: https
+      port: 8444
+      targetPort: 8444

@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ntfy-tunnel
+  namespace: ntfy
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: ntfy.mydomain2.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ntfy
+                port:
+                  number: 80

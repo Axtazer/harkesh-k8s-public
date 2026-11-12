@@ -1,0 +1,113 @@
+---
+# Jellyfin (namespace media, deny-all défini dans media-stack/networkpolicy.yaml).
+#   cloudflared, jellyseerr, radarr, sonarr ─► jellyfin:8096 (Seerr : auth + bibliothèque ;
+#                                              *arr : notification "Connect" de rafraîchissement)
+#   jellyfin                ─► Internet 80/443 (métadonnées, plugins), DNS via la règle commune
+#   jellyfin                ─► sonarr:8989, radarr:7878, jellyseerr:5055 (plugin Jellyfin Enhanced :
+#                              sans ces règles la connexion expire après 10 s et ralentit l'interface)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jellyfin-allow-ingress
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app: jellyfin
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [jellyseerr, radarr, sonarr]
+      ports:
+        - port: 8096
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jellyfin-allow-egress-internet
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app: jellyfin
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP
+---
+# Jellyfin Enhanced (plugin) interroge Sonarr, Radarr et Jellyseerr par leurs Services internes
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jellyfin-allow-egress-arr
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app: jellyfin
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [sonarr, radarr, jellyseerr]
+      ports:
+        - port: 8989
+          protocol: TCP
+        - port: 7878
+          protocol: TCP
+        - port: 5055
+          protocol: TCP
+---
+# Miroir côté Sonarr / Radarr / Jellyseerr (le deny-all du namespace bloque aussi l'ingress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arr-allow-ingress-jellyfin
+  namespace: media
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [sonarr, radarr, jellyseerr]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: jellyfin
+      ports:
+        - port: 8989
+          protocol: TCP
+        - port: 7878
+          protocol: TCP
+        - port: 5055
+          protocol: TCP

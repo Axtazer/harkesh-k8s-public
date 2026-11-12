@@ -1,0 +1,158 @@
+---
+# NetworkPolicies Pelican — namespaces pelican (Panel) et wings (daemon Wings).
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace pelican.
+# Flux ré-ouverts :
+#   cloudflared ─► panel:80          (panel.mydomain2.fr ; couvre aussi les callbacks Wings ─► Panel
+#                                     quand `remote` de /etc/pelican/config.yml vise l'URL publique)
+#   panel       ─► Wings, hôte:8080  (wings-svc.wings:8443 / ExternalName wings-internal ; le Service
+#                                     traduit 8443 → targetPort 8080 sur l'IP du nœud, Wings étant en
+#                                     hostNetwork = identité Cilium « host » → CiliumNetworkPolicy)
+#   panel       ─► Internet 443      (import/mise à jour d'eggs et plugins, vérification de version,
+#                                     webhooks, captcha, OAuth éventuel via auth.mydomain2.fr)
+#   panel       ─► Internet 8443     (Wings via son FQDN public : le nœud est déclaré dans le Panel
+#                                     comme https://node01.mydomain2.fr:8443, servi par Cloudflare
+#                                     → tunnel → wings-svc:8443. Sans ce port : cURL error 28 sur
+#                                     /api/system, nœud injoignable)
+#   panel       ─► Internet 465/587  (SMTP : MAIL_MAILER=smtp dans /pelican-data/.env)
+#   panel       ─► DNS (kube-system:53)
+# Flux sans règle :
+#   - probes kubelet TCP:80, et Wings ─► panel via le Service interne (pelican-panel-svc) : trafic
+#     depuis l'hôte, toujours autorisé par Cilium. Idem pour un `kubectl port-forward` de secours.
+#   - Wings lui-même (hostNetwork + privileged) n'est sélectionnable par aucune NetworkPolicy :
+#     cloudflared ─► :8080, SFTP :2022 (LAN), egress vers le Panel / registres Docker et trafic des
+#     serveurs de jeux (conteneurs Docker hors Cilium) relèvent du pare-feu de l'hôte.
+#   - base de données / Redis : aucun flux — /pelican-data/.env (hors GitOps) : DB_CONNECTION=sqlite,
+#     CACHE_STORE=file (vérifié le 2026-10-11). Si MySQL/Redis sur l'hôte un jour : ajouter
+#     toEntities [host] port 3306/6379 à panel-allow-egress-wings (un ipBlock ne matche pas l'IP du
+#     nœud) ; sur une autre machine du LAN : ipBlock /32 dédié. Idem pour des « Database Hosts » (3306).
+#   - accès de secours via shared-gateway (HTTPRoute, cf. _docs/architecture.md) : non ouvert. Le trafic de l'Envoy
+#     Cilium arrive avec l'identité « ingress », pas cloudflared ; si une HTTPRoute est rebranchée,
+#     ajouter une CiliumNetworkPolicy ingress fromEntities [ingress] port 80 pour app: panel.
+# CI : le kind CiliumNetworkPolicy doit figurer dans le -skip de l'étape 3 de
+#   .github/workflows/validate.yml (validé à l'étape 4 via le catalogue datreeio).
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n pelican --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pelican-default-deny
+  namespace: pelican
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Résolution DNS (CoreDNS dans kube-system) pour tous les pods du namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pelican-allow-egress-dns
+  namespace: pelican
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# cloudflared (connecteur géré par cloudflare-tunnel-ingress-controller) -> Panel (Caddy :80)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: panel-allow-ingress-cloudflared
+  namespace: pelican
+spec:
+  podSelector:
+    matchLabels:
+      app: panel
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 80
+          protocol: TCP
+---
+# Panel -> Internet 443 (GitHub / dépôts d'eggs et de plugins, vérification de version, webhooks,
+# captcha) + 8443 (Wings via https://node01.mydomain2.fr:8443, FQDN/port déclarés pour le nœud dans le
+# Panel, servi par l'edge Cloudflare) + SMTP 465/587
+# (MAIL_MAILER=smtp : mails de reset de mot de passe, invitations). Les plages privées restent
+# exclues : pas d'accès au LAN ni aux autres services du cluster par ce biais.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: panel-allow-egress-internet
+  namespace: pelican
+spec:
+  podSelector:
+    matchLabels:
+      app: panel
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 8443
+          protocol: TCP
+        - port: 465
+          protocol: TCP
+        - port: 587
+          protocol: TCP
+---
+# Panel -> API Wings par le chemin interne (wings-svc.wings / wings-internal). Le pod Wings est en
+# hostNetwork : après traduction du Service (kubeProxyReplacement), la destination est l'IP du nœud
+# sur le port 8080 (targetPort ; 8443 n'est que le port du Service). Cette IP porte l'identité
+# Cilium « host », que ni un podSelector ni un ipBlock ne matchent → CiliumNetworkPolicy.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: panel-allow-egress-wings
+  namespace: pelican
+spec:
+  endpointSelector:
+    matchLabels:
+      app: panel
+  egress:
+    - toEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+---
+# Namespace wings : son seul pod (Wings) est en hostNetwork et n'est donc PAS sélectionné par ce
+# deny-all (identité Cilium « host », hors périmètre des NetworkPolicies). Garde-fou pour tout
+# futur pod non-hostNetwork ajouté au namespace ; il ne protège pas Wings. Si Wings quitte un jour
+# hostNetwork, ce deny-all coupera tous ses flux : ajouter alors les règles correspondantes.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wings-default-deny
+  namespace: wings
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress

@@ -1,0 +1,23 @@
+---
+# Instance KubeVirt (cf. _docs/apps/kali.md). Appliquée après l'opérateur (vague 1) : son CRD
+# KubeVirt est créé par kubevirt-operator.yaml (release officielle, cf. kustomization.yaml), d'où SkipDryRunOnMissingResource.
+# infra.replicas: 1 — nœud unique, inutile de dupliquer virt-api / virt-controller (2 par défaut).
+apiVersion: kubevirt.io/v1
+kind: KubeVirt
+metadata:
+  name: kubevirt
+  namespace: kubevirt
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  certificateRotateStrategy: {}
+  configuration:
+    developerConfiguration:
+      featureGates: []
+    imagePullPolicy: IfNotPresent
+  customizeComponents: {}
+  imagePullPolicy: IfNotPresent
+  infra:
+    replicas: 1
+  workloadUpdateStrategy: {}

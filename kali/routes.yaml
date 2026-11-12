@@ -1,0 +1,68 @@
+---
+# kali-N.mydomain2.fr — chacun derrière une application Cloudflare Access (politique Login),
+# cf. _docs/cloudflare.md. Backend KasmVNC (dans la VM, port 8444) en HTTPS avec certificat auto-signé.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kali-1-tunnel
+  namespace: kali
+  annotations:
+    cloudflare-tunnel-ingress-controller.strrl.dev/backend-protocol: https
+    cloudflare-tunnel-ingress-controller.strrl.dev/proxy-ssl-verify: "off"
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: kali-1.mydomain2.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kali-1
+                port:
+                  number: 8444
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kali-2-tunnel
+  namespace: kali
+  annotations:
+    cloudflare-tunnel-ingress-controller.strrl.dev/backend-protocol: https
+    cloudflare-tunnel-ingress-controller.strrl.dev/proxy-ssl-verify: "off"
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: kali-2.mydomain2.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kali-2
+                port:
+                  number: 8444
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kali-3-tunnel
+  namespace: kali
+  annotations:
+    cloudflare-tunnel-ingress-controller.strrl.dev/backend-protocol: https
+    cloudflare-tunnel-ingress-controller.strrl.dev/proxy-ssl-verify: "off"
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: kali-3.mydomain2.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kali-3
+                port:
+                  number: 8444

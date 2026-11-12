@@ -1,0 +1,10 @@
+[Unit]
+Description=Vérification hebdomadaire du dépôt restic harkesh
+
+[Timer]
+OnCalendar=Sun *-*-* 07:00
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

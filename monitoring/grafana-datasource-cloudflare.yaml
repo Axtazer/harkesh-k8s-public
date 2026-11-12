@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-cloudflare
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+data:
+  cloudflare-infinity.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: cloudflare-infinity
+        uid: cloudflare-infinity
+        type: yesoreyeram-infinity-datasource
+        access: proxy
+        isDefault: false
+        jsonData:
+          auth_method: bearerToken
+          allowed_hosts:
+            - https://api.cloudflare.com/client/v4/
+        secureJsonData:
+          bearerToken: "$CLOUDFLARE_API_TOKEN"

@@ -1,0 +1,19 @@
+# Exclusions restic (--exclude-file). Motifs restic : * ne traverse pas les /, ** oui.
+
+# Fichiers bruts des bases : remplacés par les dumps cohérents de /var/backups/harkesh
+/srv/appdata/authentik-db
+/srv/appdata/matrix/postgres
+/mnt/hdd/data/mariadb
+/mnt/hdd/data/shlink
+/opt/local-path-provisioner/*_n8n_data-postgres-0
+
+# Métriques et logs : se reconstituent, inutile de les sauvegarder
+/opt/local-path-provisioner/*_monitoring_*
+
+# Régénérables : aperçus Nextcloud, logs et transcodages Jellyfin
+/mnt/hdd/cloud_data/appdata_*/preview
+/srv/jellyfin/config/log
+/srv/jellyfin/config/transcodes
+
+# Téléchargements qBittorrent (config conservée, pas les fichiers en cours)
+/srv/appdata/qbittorrent/**/*.!qB

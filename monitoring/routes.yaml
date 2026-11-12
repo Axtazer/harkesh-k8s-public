@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-tunnel
+  namespace: monitoring
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: grafana.mydomain.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: victoria-metrics-k8s-stack-grafana
+                port:
+                  number: 80

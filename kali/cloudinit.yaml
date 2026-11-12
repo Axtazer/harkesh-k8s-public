@@ -1,0 +1,90 @@
+---
+# cloud-init commun aux 3 VM (Secret exigé par KubeVirt : secretRef, la limite de userData en
+# ligne est de 2 Ko). Ne contient AUCUN secret : uniquement la configuration du premier démarrage.
+# Modifié après coup : n'a d'effet que sur une VM neuve (cloud-init ne rejoue pas) ;
+# pour rejouer sur une VM existante : sudo cloud-init clean --logs && sudo reboot (réinstalle).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kali-cloudinit
+  namespace: kali
+type: Opaque
+stringData:
+  userdata: |
+    #cloud-config
+    preserve_hostname: false
+    # Provisionnement au premier démarrage de chaque VM Kali (cf. _docs/apps/kali.md).
+    # Aucun secret ici : les mots de passe sont lus depuis le disque « CREDS » (Secret kali-credentials).
+    package_update: true
+    package_upgrade: false
+    packages:
+      - qemu-guest-agent
+      - kali-desktop-xfce
+      - ssl-cert
+      - curl
+      - ca-certificates
+    users:
+      - name: kali
+        gecos: Kali
+        shell: /bin/bash
+        groups: [sudo]
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        lock_passwd: false
+    write_files:
+      - path: /usr/local/sbin/kali-set-password
+        permissions: "0750"
+        content: |
+          #!/bin/bash
+          # (Re)définit le mot de passe du compte « kali » (session Linux ET connexion web KasmVNC)
+          # depuis le disque CREDS : champ password-N du Secret kali-credentials, N = n° de la VM.
+          # À relancer après un changement de mot de passe dans 1Password (la VM doit avoir redémarré
+          # pour recevoir le nouveau Secret) : sudo kali-set-password
+          set -euo pipefail
+          n=$(cloud-init query local-hostname 2>/dev/null || true)
+          [ -n "$n" ] || n=$(hostname -s)
+          n=${n%%.*}; n=${n#kali-}
+          mkdir -p /mnt/creds
+          mountpoint -q /mnt/creds || mount -o ro /dev/disk/by-id/virtio-CREDS /mnt/creds
+          pw=$(cat "/mnt/creds/password-$n")
+          echo "kali:$pw" | chpasswd
+          printf '%s\n%s\n' "$pw" "$pw" | env HOME=/home/kali runuser -u kali -- /usr/bin/kasmvncpasswd -u kali -wo
+          umount /mnt/creds
+      - path: /etc/systemd/system/kasmvnc.service
+        permissions: "0644"
+        content: |
+          [Unit]
+          Description=KasmVNC (bureau XFCE dans le navigateur, port 8444)
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          User=kali
+          Group=kali
+          Environment=HOME=/home/kali
+          WorkingDirectory=/home/kali
+          ExecStartPre=-/usr/bin/vncserver -kill :1
+          ExecStart=/usr/bin/vncserver :1 -fg -select-de xfce -depth 24 -geometry 1920x1080 \
+            -websocketPort 8444 -sslOnly -FrameRate=24 -interface 0.0.0.0 \
+            -cert /etc/ssl/certs/ssl-cert-snakeoil.pem -key /etc/ssl/private/ssl-cert-snakeoil.key \
+            -httpd /usr/share/kasmvnc/www
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+    runcmd:
+      - |
+        set -e
+        curl -fsSL -o /tmp/kasmvnc.deb \
+          https://github.com/kasmtech/KasmVNC/releases/download/v1.4.0/kasmvncserver_trixie_1.4.0_amd64.deb
+        echo '7b1515fbb0dd5002db2bcfd352882836333ac995dc423f440c8fbb9de30d7c31  /tmp/kasmvnc.deb' | sha256sum -c -
+        apt-get install -y /tmp/kasmvnc.deb
+      - [usermod, -aG, ssl-cert, kali]
+      - [/usr/local/sbin/kali-set-password]
+      - [systemctl, enable, --now, qemu-guest-agent]
+      - [systemctl, enable, --now, kasmvnc.service]
+  networkdata: |
+    version: 2
+    ethernets:
+      eth0:
+        dhcp4: true

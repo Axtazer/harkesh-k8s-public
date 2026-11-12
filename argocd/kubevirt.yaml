@@ -1,0 +1,25 @@
+---
+# KubeVirt : machines virtuelles (KVM) dans Kubernetes — utilisé par les VM Kali (kali/).
+# infra/kubevirt/kustomization.yaml récupère le manifest officiel de l'opérateur (release GitHub v1.9.1)
+# et y ajoute l'instance KubeVirt locale. Monter de version = changer le tag dans cette kustomization.
+# ServerSideApply : les CRD dépassent la limite d'annotation du client-side apply.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubevirt
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Axtazer/harkesh-k8s
+    targetRevision: master
+    path: infra/kubevirt
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kubevirt
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

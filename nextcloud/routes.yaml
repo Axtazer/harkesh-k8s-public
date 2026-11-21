@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nextcloud-tunnel
+  namespace: nextcloud
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: nas.mydomain.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nextcloud
+                port:
+                  number: 80

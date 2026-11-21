@@ -1,0 +1,26 @@
+# Chemins sauvegardés par restic (--files-from). Exclusions : excludes.txt.
+# Dumps des bases + snapshot etcd (générés par harkesh-backup.sh juste avant)
+/var/backups/harkesh
+# Configuration de l'hôte (kubeadm/PKI/clé de chiffrement etcd, containerd (runtime NVIDIA,
+# SystemdCgroup), montages, options des modules (GSP NVIDIA), pare-feu ufw, SSH, DNS, apt, Wings)
+/etc/kubernetes
+/etc/containerd
+/etc/fstab
+/etc/modprobe.d
+/etc/ufw
+/etc/ssh
+/etc/systemd/resolved.conf.d
+/etc/apt/preferences.d
+/etc/apt/apt.conf.d
+/etc/modules-load.d
+/etc/pelican
+# Données applicatives (NVMe)
+/srv/appdata
+/srv/jellyfin/config
+/opt/local-path-provisioner
+# Serveurs de jeux Pelican
+/var/lib/pelican
+# Données applicatives (HDD) — hors médiathèque /mnt/hdd/media
+/mnt/hdd/data
+/mnt/hdd/cloud_data
+/mnt/hdd/rox

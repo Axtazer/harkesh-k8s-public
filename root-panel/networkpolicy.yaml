@@ -1,0 +1,45 @@
+---
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace root-panel.
+# Les règles ci-dessous ré-ouvrent uniquement les flux connus :
+#   cloudflared ─► root-panel:8080   (root.mydomain2.fr, cf. routes.yaml)
+# Aucun egress : site statique embarqué dans l'image, pas de DNS ni d'appel sortant
+# (les liens de la page sont ouverts par le navigateur, pas par le pod ; le pull de l'image
+# GHCR est fait par le kubelet sur l'hôte, hors NetworkPolicy).
+# Les probes kubelet ne sont pas concernées (trafic depuis l'hôte, toujours autorisé par Cilium).
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n root-panel --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: root-panel-default-deny
+  namespace: root-panel
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# connecteur cloudflared (namespace cloudflare-tunnel-ingress-controller) -> root-panel:8080
+# Le connecteur est un Deployment enfant créé dynamiquement par le controller
+# cloudflare-tunnel-ingress-controller (label app: controlled-cloudflared-connector).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: root-panel-allow-ingress-cloudflared
+  namespace: root-panel
+spec:
+  podSelector:
+    matchLabels:
+      app: root-panel
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 8080
+          protocol: TCP

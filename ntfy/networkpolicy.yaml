@@ -1,0 +1,139 @@
+---
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace ntfy.
+# Les règles ci-dessous ré-ouvrent uniquement les flux connus :
+#   cloudflared ─► ntfy:80   (ntfy.mydomain2.fr, cf. routes.yaml : publication HTTP, abonnements
+#                             JSON/SSE/WebSocket des applis, UI web, health check externe ; c'est aussi
+#                             par là qu'arrivent les émetteurs du cluster qui utilisent l'URL publique
+#                             — n8n, *arr/Seerr, Synapse UnifiedPush, Grafana — via Internet ─► Cloudflare)
+#   grafana     ─► ntfy:80   (monitoring : contact point d'alerting éventuel sur l'URL interne
+#                             http://ntfy.ntfy.svc.cluster.local, ntfy étant LE canal d'alerting ;
+#                             alertmanager/vmalert sont désactivés, seul Grafana peut alerter.
+#                             Label du pod Grafana SUPPOSÉ (chart Helm) : app.kubernetes.io/name: grafana,
+#                             à vérifier avec kubectl get pods -n monitoring --show-labels)
+#   ntfy        ─► Internet 443 (upstream-base-url https://ntfy.sh : relais des poll_request
+#                                pour les notifications iOS)
+#   ntfy        ─► DNS (kube-system:53)
+# Non ouverts car désactivés dans ntfy-config : envoi SMTP (smtp-sender-*, il faudrait 465/587),
+# serveur SMTP entrant (smtp-server-listen), métriques (enable-metrics, aucun ServiceMonitor).
+# Firebase FCM (firebase-key-file), Web Push et Twilio ne sont pas configurés non plus ; s'ils
+# l'étaient, la règle Internet 443 les couvrirait déjà.
+# Hors Grafana, aucun autre appelant de l'URL interne n'est ouvert (Nextcloud, Pelican, Authentik,
+# n8n, *arr…) : ces émetteurs doivent publier sur https://ntfy.mydomain2.fr, sinon ajouter une
+# règle ingress dédiée sur le modèle de ntfy-allow-ingress-grafana.
+# Accès de secours via shared-gateway (HTTPRoute, label shared-gateway-access du namespace) non
+# ouvert : il faudrait une CiliumNetworkPolicy fromEntities [ingress] (Envoy Cilium) sur app: ntfy
+# port 80. Le kubectl port-forward (passe par le kubelet/l'hôte) reste fonctionnel.
+# Les probes kubelet ne sont pas concernées (trafic depuis l'hôte, toujours autorisé par Cilium).
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n ntfy --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ntfy-default-deny
+  namespace: ntfy
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Résolution DNS (CoreDNS dans kube-system) pour tous les pods du namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ntfy-allow-egress-dns
+  namespace: ntfy
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# connecteur cloudflared (namespace cloudflare-tunnel-ingress-controller) -> ntfy:80
+# Le connecteur est un Deployment enfant créé dynamiquement par le controller
+# cloudflare-tunnel-ingress-controller (label app: controlled-cloudflared-connector).
+# Port du conteneur (listen-http ":80"), identique au port du Service.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ntfy-allow-ingress-cloudflared
+  namespace: ntfy
+spec:
+  podSelector:
+    matchLabels:
+      app: ntfy
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 80
+          protocol: TCP
+---
+# Grafana (namespace monitoring) -> ntfy:80 via l'URL interne http://ntfy.ntfy.svc.cluster.local
+# Filet de sécurité pour le canal d'alerting : un contact point créé dans l'UI Grafana (hors GitOps)
+# peut viser l'URL interne. Label app.kubernetes.io/name: grafana supposé (sous-chart Helm grafana
+# de victoria-metrics-k8s-stack, non vérifiable dans le dépôt). Si le label diffère, la règle ne
+# matche rien (aucune ouverture indue) mais le flux reste bloqué : vérifier avec
+# kubectl get pods -n monitoring --show-labels.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ntfy-allow-ingress-grafana
+  namespace: ntfy
+spec:
+  podSelector:
+    matchLabels:
+      app: ntfy
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+      ports:
+        - port: 80
+          protocol: TCP
+---
+# ntfy -> internet 443 (upstream ntfy.sh pour iOS), exclut les plages privées
+# pour ne pas réautoriser l'accès aux autres namespaces/services du cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ntfy-allow-egress-internet
+  namespace: ntfy
+spec:
+  podSelector:
+    matchLabels:
+      app: ntfy
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP

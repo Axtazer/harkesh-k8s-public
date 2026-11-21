@@ -1,0 +1,35 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: n8n
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Manifests bruts (namespace, secrets 1Password, PostgreSQL, NetworkPolicy)
+    - repoURL: https://github.com/Axtazer/harkesh-k8s
+      targetRevision: master
+      path: n8n
+      directory:
+        exclude: "helm-values.yaml"
+    # Référence pour les values du chart Helm (même repo/commit)
+    - repoURL: https://github.com/Axtazer/harkesh-k8s
+      targetRevision: master
+      ref: values
+    # Chart Helm n8n (registre OCI Harbor — l'ancien chartrepo classique n'est plus servi)
+    - repoURL: 8gears.container-registry.com/library
+      chart: n8n
+      targetRevision: 2.1.1
+      helm:
+        valueFiles:
+          - $values/n8n/helm-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: n8n
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

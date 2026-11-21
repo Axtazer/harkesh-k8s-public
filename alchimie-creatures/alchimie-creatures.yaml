@@ -1,0 +1,87 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: alchimie-creatures
+  labels:
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+    shared-gateway-access: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alchimie-creatures
+  namespace: alchimie-creatures
+  labels:
+    app: alchimie-creatures
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: alchimie-creatures
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: alchimie-creatures
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: alchimie-creatures
+          # Image privée GHCR (nginx-unprivileged, build Vite statique, port 8080).
+          # Tag sha-7532e3a et digest SHA pinnés : Renovate met à jour les deux.
+          image: ghcr.io/axtazer/alchimie-creatures:sha-7532e3a@sha256:0ebbbdf6aafbb00f2b4ab7da2a8daab42c04852dd1b81da1305cb8b51c39b907
+          ports:
+            - containerPort: 8080
+          env:
+            - name: TZ
+              value: Europe/Paris
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alchimie-creatures
+  namespace: alchimie-creatures
+spec:
+  type: ClusterIP
+  selector:
+    app: alchimie-creatures
+  ports:
+    - port: 80
+      targetPort: 8080

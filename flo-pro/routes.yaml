@@ -1,0 +1,29 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flo-pro-tunnel
+  namespace: flo-pro
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: mydomain.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: flo-pro
+                port:
+                  number: 80
+    - host: dev-pro.mydomain.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dev-flo-pro
+                port:
+                  number: 81

@@ -1,0 +1,126 @@
+---
+# Deny-all (ingress + egress) puis flux ouverts :
+#   cloudflared ─► kali-N:8444 (kali-1/2/3.mydomain2.fr, KasmVNC dans la VM, HTTPS ; les pods virt-launcher portent
+#                  app: kali, la VM est derrière le pod en masquerade)
+#   kali        ─► DNS (kube-system:53)
+#   kali-disk-init ─► Internet 443 (Jobs de préparation des disques : image cloud Kali)
+#   kali        ─► Internet (tout port, plages privées exclues : le bureau Kali ne doit pas
+#                  pouvoir scanner/atteindre les autres pods, les Services, le LAN ni les
+#                  autres bureaux Kali : les 3 sont isolés entre eux)
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n kali --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kali-default-deny
+  namespace: kali
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kali-allow-egress-dns
+  namespace: kali
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kali-allow-ingress-cloudflared
+  namespace: kali
+spec:
+  podSelector:
+    matchLabels:
+      app: kali
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 8444
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kali-allow-egress-internet
+  namespace: kali
+spec:
+  podSelector:
+    matchLabels:
+      app: kali
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+---
+# Jobs kali-start / kali-stop (scheduler.yaml) -> API server (kubectl scale). Le DNS est déjà ouvert
+# pour tout le namespace ; aucune autre sortie ni entrée. API server = toEntities (cf. CLAUDE.md).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: kali-scheduler-allow-egress-apiserver
+  namespace: kali
+spec:
+  endpointSelector:
+    matchLabels:
+      app: kali-scheduler
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
+---
+# Jobs kali-N-disk-init : téléchargement de l'image cloud Kali (HTTPS), plages privées exclues.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kali-disk-init-allow-egress-internet
+  namespace: kali
+spec:
+  podSelector:
+    matchLabels:
+      app: kali-disk-init
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP

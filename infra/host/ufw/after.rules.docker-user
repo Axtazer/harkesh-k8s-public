@@ -1,0 +1,17 @@
+# À ajouter À LA FIN de /etc/ufw/after.rules (procédure : _docs/hote.md, « Pare-feu »).
+# Docker contourne ufw pour le trafic des conteneurs (chaîne FORWARD) : sans ces règles, un serveur de
+# jeu Pelican (code tiers : mods, plugins) joint tout le LAN — box, postes, autres équipements.
+# DOCKER-USER est la seule chaîne que Docker évalue avant ses propres ACCEPT et qu'il ne réécrit pas.
+# Les réponses aux joueurs du LAN passent par la règle conntrack ; Internet reste ouvert (mises à jour,
+# authentification des jeux). L'accès conteneur -> hôte se règle dans INPUT (pas de règle ufw
+# « 172.16.0.0/12 » : seuls les ports de jeux et le SFTP sont ouverts).
+*filter
+:DOCKER-USER - [0:0]
+-A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+-A DOCKER-USER -i pelican0 -o pelican0 -j RETURN
+-A DOCKER-USER -i pelican0 -d 192.168.0.0/16 -j DROP
+-A DOCKER-USER -i pelican0 -d 10.0.0.0/8 -j DROP
+-A DOCKER-USER -i pelican0 -d 172.16.0.0/12 -j DROP
+-A DOCKER-USER -i pelican0 -d 169.254.0.0/16 -j DROP
+-A DOCKER-USER -j RETURN
+COMMIT

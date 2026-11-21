@@ -1,0 +1,239 @@
+---
+# Deny-all par défaut (ingress + egress) pour tous les pods du namespace matrix.
+# Les règles ci-dessous ré-ouvrent uniquement les flux connus :
+#   cloudflared ─► synapse:8008, matrix-wellknown:8080, maubot:29316
+#   draupnir    ─► synapse:8008 (homeserverUrl interne) + Internet 443 (rawHomeserverUrl public, listes)
+#   maubot      ─► synapse:8008 (homeserver interne) + Internet 80/443 (flux RSS/Atom)
+#   synapse     ─► postgres:5432 + Internet 80/443 (URL previews, push gateways, oEmbed)
+#   tous        ─► DNS (kube-system:53)
+# Les probes kubelet ne sont pas concernées (trafic depuis l'hôte, toujours autorisé par Cilium).
+# Diagnostic : kubectl exec -n kube-system ds/cilium -- hubble observe -n matrix --verdict DROPPED --follow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: matrix-default-deny
+  namespace: matrix
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: matrix-allow-egress-dns
+  namespace: matrix
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# cloudflared (connecteur géré par cloudflare-tunnel-ingress-controller) -> synapse + well-known
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: synapse-allow-ingress
+  namespace: matrix
+spec:
+  podSelector:
+    matchLabels:
+      app: synapse
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+        - podSelector:
+            matchLabels:
+              app: draupnir
+        - podSelector:
+            matchLabels:
+              app: maubot
+      ports:
+        - port: 8008
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wellknown-allow-ingress-cloudflared
+  namespace: matrix
+spec:
+  podSelector:
+    matchLabels:
+      app: matrix-wellknown
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-allow-ingress-synapse
+  namespace: matrix
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: synapse
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+# synapse -> postgres + Internet (URL previews, push gateways Element, oEmbed). Les plages privées
+# restent bloquées (l'anti-SSRF url_preview_ip_range_blacklist est doublé au niveau réseau).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: synapse-allow-egress
+  namespace: matrix
+spec:
+  podSelector:
+    matchLabels:
+      app: synapse
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP
+---
+# draupnir -> synapse en interne (évite le hairpin par le tunnel) + Internet 443 (rawHomeserverUrl,
+# listes de bans communautaires)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: draupnir-allow-egress
+  namespace: matrix
+spec:
+  podSelector:
+    matchLabels:
+      app: draupnir
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: synapse
+      ports:
+        - port: 8008
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+---
+# cloudflared (connecteur géré par cloudflare-tunnel-ingress-controller) -> interface web maubot
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: maubot-allow-ingress-cloudflared
+  namespace: matrix
+spec:
+  podSelector:
+    matchLabels:
+      app: maubot
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel-ingress-controller
+          podSelector:
+            matchLabels:
+              app: controlled-cloudflared-connector
+      ports:
+        - port: 29316
+          protocol: TCP
+---
+# maubot -> synapse en interne (évite le hairpin par le tunnel) + Internet 80/443
+# (récupération des flux RSS/Atom). Les plages privées restent bloquées : un flux ne doit
+# pas pouvoir viser le réseau interne (SSRF). L'upload des .mbp se fait navigateur ->
+# maubot, il ne demande pas d'egress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: maubot-allow-egress
+  namespace: matrix
+spec:
+  podSelector:
+    matchLabels:
+      app: maubot
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: synapse
+      ports:
+        - port: 8008
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP

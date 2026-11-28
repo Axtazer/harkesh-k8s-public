@@ -1,0 +1,25 @@
+---
+# 3 VM Kali Linux (KubeVirt, KVM) avec bureau XFCE accessible depuis un navigateur (Windows, macOS…)
+# via KasmVNC dans la VM, cf. _docs/apps/kali.md. Root complet dans la VM, isolée de l'hôte par
+# l'hyperviseur. kali-1/2/3.mydomain2.fr : accès uniquement via Cloudflare Tunnel + Access (Login).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kali
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  labels:
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+# Mots de passe des bureaux (utilisateur kasm_user) -> Secret "kali-credentials"
+# À créer dans 1Password AVANT de merger : vault k8s-home, item kali-credentials,
+# champs password-1, password-2, password-3 (un mot de passe distinct par VM ; lus DANS la VM via
+# un disque virtuel : chaque VM voit les 3 champs, cf. _docs/apps/kali.md)
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: kali-credentials
+  namespace: kali
+spec:
+  itemPath: "vaults/k8s-home/items/kali-credentials"

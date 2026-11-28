@@ -1,0 +1,12 @@
+# À ajouter À LA FIN de /etc/ufw/after6.rules : même principe en IPv6 (le réseau pelican_nw a un
+# préfixe ULA). Le préfixe global est celui du domicile (fixe chez Free) : à adapter s'il change
+# (ip -6 addr show dev eno1 scope global).
+*filter
+:DOCKER-USER - [0:0]
+-A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+-A DOCKER-USER -i pelican0 -o pelican0 -j RETURN
+-A DOCKER-USER -i pelican0 -d 2a01:e0a:1011:f660::/64 -j DROP
+-A DOCKER-USER -i pelican0 -d fc00::/7 -j DROP
+-A DOCKER-USER -i pelican0 -d fe80::/10 -j DROP
+-A DOCKER-USER -j RETURN
+COMMIT

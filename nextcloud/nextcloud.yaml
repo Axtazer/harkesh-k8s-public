@@ -1,0 +1,424 @@
+---
+# /srv/kubernetes/storageServices/nextcloud.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nextcloud
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  labels:
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+    shared-gateway-access: "true"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nextcloud-app-pv
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/data/nextcloud/app
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-app-pvc
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  namespace: nextcloud
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+  volumeName: nextcloud-app-pv
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nextcloud-data-pv
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  capacity:
+    storage: 500Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/cloud_data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-data-pvc
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  namespace: nextcloud
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 500Gi
+  volumeName: nextcloud-data-pv
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nextcloud-db-pv
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/hdd/data/mariadb
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-db-pvc
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  namespace: nextcloud
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 50Gi
+  volumeName: nextcloud-db-pv
+---
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: nextcloud-db-secret
+  namespace: nextcloud
+spec:
+  itemPath: "vaults/k8s-home/items/nextcloud-db"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb
+  namespace: nextcloud
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: mariadb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mariadb
+          image: mariadb:11@sha256:e1d5495f445654134f226f55a41ce0da227116f6f27f283101f405c794d841fc
+          securityContext:
+            allowPrivilegeEscalation: false
+          args:
+            - --transaction-isolation=READ-COMMITTED
+            - --innodb_read_only_compressed=OFF
+            - --innodb_flush_log_at_trx_commit=2
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_general_ci
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: mot-de-passe
+            - name: MARIADB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: Base-de-donn-es
+            - name: MARIADB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: Nom-d-utilisateur
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: mot-de-passe
+            - name: TZ
+              value: Europe/Paris
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/mysql
+          # Readiness seulement : le Service ne route vers MariaDB qu'une fois le port ouvert (après
+          # la récupération InnoDB). Pas de liveness : tuer une base en pleine récupération après un
+          # arrêt brutal la ferait repartir de zéro en boucle.
+          readinessProbe:
+            tcpSocket:
+              port: 3306
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: nextcloud-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: nextcloud
+spec:
+  selector:
+    app: mariadb
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: nextcloud
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          image: redis:8.10.3-alpine@sha256:7958cfbb9d152f87dadfbc89f1b0b15938f0b81ff8982feb327476f4911935c3
+          securityContext:
+            allowPrivilegeEscalation: false
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: nextcloud
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: nextcloud
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nextcloud
+          image: nextcloud:35.0.3-apache@sha256:f22d1dd63844bd15bbf6c2019149653c3d1c775ba48b173b56c3c6ad5f386196
+          securityContext:
+            allowPrivilegeEscalation: false
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: Base-de-donn-es
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: Nom-d-utilisateur
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-db-secret
+                  key: mot-de-passe
+            - name: MYSQL_HOST
+              value: mariadb.nextcloud.svc.cluster.local
+            - name: NEXTCLOUD_DATA_DIR
+              value: /data
+            - name: PHP_MEMORY_LIMIT
+              value: "2048M"
+            - name: PHP_UPLOAD_LIMIT
+              value: "16G"
+            - name: TZ
+              value: Europe/Paris
+            - name: NEXTCLOUD_TRUSTED_DOMAINS
+              value: "nas.mydomain.fr harkesh.lan"
+            # CIDR pods/services du cluster (Cilium cluster-pool par défaut : 10.0.0.0/8).
+            # Les anciennes valeurs 10.42.0.0/16 10.43.0.0/16 sont les CIDR par défaut de k3s,
+            # pas de ce cluster kubeadm : le pod cloudflared n'était donc pas reconnu comme
+            # proxy et son IP était vue comme IP client (brute-force protection partagée).
+            - name: TRUSTED_PROXIES
+              value: "10.0.0.0/8"
+            - name: REDIS_HOST
+              value: redis.nextcloud.svc.cluster.local
+            - name: REDIS_HOST_PORT
+              value: "6379"
+          volumeMounts:
+            - name: app
+              mountPath: /var/www/html
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /status.php
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /status.php
+              port: 80
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+      volumes:
+        - name: app
+          persistentVolumeClaim:
+            claimName: nextcloud-app-pvc
+        - name: data
+          persistentVolumeClaim:
+            claimName: nextcloud-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+spec:
+  selector:
+    app: nextcloud
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nextcloud-cron
+  namespace: nextcloud
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          automountServiceAccountToken: false
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: nextcloud-cron
+              image: nextcloud:35.0.3-apache@sha256:f22d1dd63844bd15bbf6c2019149653c3d1c775ba48b173b56c3c6ad5f386196
+              securityContext:
+                allowPrivilegeEscalation: false
+              command:
+                - su
+                - -s
+                - /bin/bash
+                - www-data
+                - -c
+                - php /var/www/html/cron.php
+              # Même Redis que le pod web : config/redis.config.php (image) n'active Redis que si
+              # REDIS_HOST est défini. Sans ces variables, cron.php posait ses verrous de fichiers
+              # en base alors que le web les pose dans Redis : les deux ne se voyaient pas.
+              env:
+                - name: REDIS_HOST
+                  value: redis.nextcloud.svc.cluster.local
+                - name: REDIS_HOST_PORT
+                  value: "6379"
+                - name: TZ
+                  value: Europe/Paris
+              volumeMounts:
+                - name: app
+                  mountPath: /var/www/html
+                - name: data
+                  mountPath: /data
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "200m"
+          restartPolicy: OnFailure
+          volumes:
+            - name: app
+              persistentVolumeClaim:
+                claimName: nextcloud-app-pvc
+            - name: data
+              persistentVolumeClaim:
+                claimName: nextcloud-data-pvc

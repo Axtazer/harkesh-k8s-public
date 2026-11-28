@@ -1,0 +1,9 @@
+---
+# KubeVirt (cf. _docs/apps/kali.md) : opérateur = manifest officiel de la release GitHub, récupéré par
+# kustomize au moment du sync (rien à copier dans le dépôt) + instance KubeVirt locale.
+# Monter de version = changer le tag ci-dessous (Renovate le propose, toujours manuel).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://github.com/kubevirt/kubevirt/releases/download/v1.9.1/kubevirt-operator.yaml
+  - kubevirt-cr.yaml
